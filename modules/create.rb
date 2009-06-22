@@ -136,10 +136,10 @@ mc.puts <<-END
 using namespace kroll;
 using namespace ti;
 
+KROLL_MODULE(#{module_name}Module, STRING(MODULE_NAME), STRING(MODULE_VERSION));
+
 namespace ti
 {
-	KROLL_MODULE(#{module_name}Module);
-	
 	void #{module_name}Module::Initialize()
 	{
 		// load our variables
@@ -170,8 +170,11 @@ env.Append(CPPDEFINES = ('TITANIUM_#{header_define}_API_EXPORT', 1))
 env.Append(CPPPATH = ['#kroll'])
 build.add_thirdparty(env, 'poco')
 
-m = build.add_module('ti.#{name}')
+m = build.add_module('ti.#{name}', env=env)
 t = env.SharedLibrary(target = m.build_dir + '/ti#{name}module', source = Glob('*.cpp'))
+build.mark_build_target(t)
+
+t = build.utils.CopyTree(Glob('*.js'), m.build_dir)
 build.mark_build_target(t)
 END
 sc.close

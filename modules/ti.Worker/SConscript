@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+import os
+Import('build')
+
+env = build.env.Clone();
+env.Append(CPPDEFINES = ('TITANIUM_WORKER_API_EXPORT', 1))
+env.Append(CPPPATH = ['#kroll'])
+build.add_thirdparty(env, 'poco')
+
+m = build.add_module('ti.Worker', env=env)
+t = env.SharedLibrary(target = m.build_dir + '/tiworkermodule', source = Glob('*.cpp'))
+build.mark_build_target(t)
+
+t = build.utils.CopyTree(Glob('*.js'), m.build_dir)
+build.mark_build_target(t)
