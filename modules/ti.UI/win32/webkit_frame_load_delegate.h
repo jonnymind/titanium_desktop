@@ -6,11 +6,6 @@
 
 #ifndef TI_WIN32_WEBKIT_FRAME_LOAD_DELEGATE_H_
 #define TI_WIN32_WEBKIT_FRAME_LOAD_DELEGATE_H_
-#include <kroll/kroll.h>
-#include <windows.h>
-
-#include "WebKit.h"
-
 namespace ti {
 
 class Win32UserWindow;
@@ -87,7 +82,13 @@ public:
 	virtual /* [local] */ HRESULT STDMETHODCALLTYPE windowScriptObjectAvailable(
 		/* [in] */ IWebView *webView,
 		/* [in] */ JSContextRef context,
-		/* [in] */ JSObjectRef windowScriptObject);
+		/* [in] */ JSObjectRef windowScriptObject) { return S_OK; }
+		
+	virtual HRESULT STDMETHODCALLTYPE didClearWindowObject(
+		IWebView *webView,
+		JSContextRef context,
+		JSObjectRef windowScriptObject,
+		IWebFrame *frame);
 };
 
 }

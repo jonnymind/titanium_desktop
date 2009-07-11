@@ -11,12 +11,12 @@
 
 namespace ti 
 {
-	FileStream::FileStream(std::string filename_) : stream(NULL)
+	FileStream::FileStream(std::string filename_) : StaticBoundObject("FileStream"), stream(NULL)
 	{
 	#ifdef OS_OSX
 		// in OSX, we need to expand ~ in paths to their absolute path value
 		// we do that with a nifty helper method in NSString
-		this->filename = [[[NSString stringWithCString:filename_.c_str()] stringByExpandingTildeInPath] fileSystemRepresentation];
+		this->filename = [[[NSString stringWithCString:filename_.c_str() encoding:NSUTF8StringEncoding] stringByExpandingTildeInPath] fileSystemRepresentation];
 	#else
 		this->filename = filename_;
 	#endif
@@ -184,7 +184,7 @@ namespace ti
 		if (args.at(0)->IsObject())
 		{
 			SharedKObject b = args.at(0)->ToObject();
-			SharedPtr<Blob> blob = b.cast<Blob>();
+			AutoPtr<Blob> blob = b.cast<Blob>();
 			if (!blob.isNull())
 			{
 				text = (char*)blob->Get();
@@ -372,7 +372,7 @@ namespace ti
 		if (args.at(0)->IsObject())
 		{
 			SharedKObject b = args.at(0)->ToObject();
-			SharedPtr<Blob> blob = b.cast<Blob>();
+			AutoPtr<Blob> blob = b.cast<Blob>();
 			if (!blob.isNull())
 			{
 				text = (char*)blob->Get();
@@ -429,7 +429,7 @@ namespace ti
 
 	void FileStream::Ready(const ValueList& args, SharedValue result)
 	{
-		Poco::FileInputStream* fis = dynamic_cast<Poco::FileInputStream*>(this->stream);
+		Poco::FileIOS* fis = this->stream;
 		if(!fis)
 		{
 			result->SetBool(false);
@@ -442,7 +442,7 @@ namespace ti
 
 	void FileStream::IsOpen(const ValueList& args, SharedValue result)
 	{
-		Poco::FileInputStream* fis = dynamic_cast<Poco::FileInputStream*>(this->stream);
+		Poco::FileIOS* fis = this->stream;
 		result->SetBool(fis!=NULL);
 	}
 

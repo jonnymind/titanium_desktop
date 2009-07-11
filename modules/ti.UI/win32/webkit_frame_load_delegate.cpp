@@ -3,11 +3,7 @@
  * see LICENSE in the root folder for details on the license.
  * Copyright (c) 2008 Appcelerator, Inc. All Rights Reserved.
  */
-
-#include "webkit_frame_load_delegate.h"
-#include "win32_user_window.h"
 #include "../ui_module.h"
-#include "../../../kroll/modules/javascript/javascript_module.h"
 #include <comutil.h>
 
 using namespace ti;
@@ -42,8 +38,8 @@ Win32WebKitFrameLoadDelegate::didFinishLoadForFrame(IWebView *webView, IWebFrame
 }
 
 HRESULT STDMETHODCALLTYPE
-Win32WebKitFrameLoadDelegate::windowScriptObjectAvailable (
-		IWebView *webView, JSContextRef context, JSObjectRef windowScriptObject)
+Win32WebKitFrameLoadDelegate::didClearWindowObject (
+		IWebView *webView, JSContextRef context, JSObjectRef windowScriptObject, IWebFrame *frame)
 {
 	Win32UserWindow* userWindow = this->window;
 	userWindow->RegisterJSContext((JSGlobalContextRef) context);

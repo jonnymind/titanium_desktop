@@ -44,7 +44,8 @@ namespace ti
 		Host* host;
 		std::string modulePath;
 		SharedKObject global;
-		Proxy * proxy;
+		AutoPtr<Proxy> proxy;
+
 		static std::vector<SharedKObject> bindings;
 		struct Listener {
 			SharedKMethod callback;

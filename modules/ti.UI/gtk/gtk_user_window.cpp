@@ -26,29 +26,26 @@ namespace ti
 		WebKitWebView *webView,
 		GtkMenu *menu,
 		gpointer data);
-	static gint navigation_requested_cb(
+	static gint new_window_policy_decision_callback(
 		WebKitWebView* webView,
-		WebKitWebFrame* web_frame,
-		WebKitNetworkRequest* request);
-	static gint new_window_navigation_requested_cb(
-		WebKitWebView* webView,
-		WebKitWebFrame* web_frame,
+		WebKitWebFrame* frame,
 		WebKitNetworkRequest* request,
-		gchar* frame_name);
+		WebKitWebNavigationAction* navigationAction,
+		WebKitWebPolicyDecision *policyDecision,
+		gchar* frameName);
 	static void load_finished_cb(
 		WebKitWebView* view,
 		WebKitWebFrame* frame,
 		gpointer data);
-	static WebKitWebView* create_inspector_cb(
+	static WebKitWebView* inspect_web_view_cb(
 		WebKitWebInspector* webInspector,
 		WebKitWebView* page,
 		gpointer data);
 	static gboolean inspector_show_window_cb(
 		WebKitWebInspector* inspector,
 		gpointer data);
-	static void hide_window_cb(GtkWidget *widget, gpointer data);
-	
-	GtkUserWindow::GtkUserWindow(WindowConfig* config, SharedUserWindow& parent) :
+
+	GtkUserWindow::GtkUserWindow(WindowConfig* config, AutoUserWindow& parent) :
 		UserWindow(config, parent),
 		gdkWidth(-1),
 		gdkHeight(-1),
@@ -56,15 +53,15 @@ namespace ti
 		gdkY(-1),
 		gdkMaximized(false),
 		gdkMinimized(false),
-		gtkWindow(NULL),
-		vbox(NULL),
-		webView(NULL),
+		gtkWindow(0),
+		vbox(0),
+		webView(0),
 		topmost(false),
-		menu(NULL),
-		menuInUse(NULL),
-		menuBar(NULL),
-		iconPath(NULL),
-		context_menu(NULL),
+		menu(0),
+		activeMenu(0),
+		contextMenu(0),
+		nativeMenu(0),
+		iconPath(""),
 		inspectorWindow(0)
 	{
 	}
@@ -84,27 +81,15 @@ namespace ti
 				G_OBJECT(webView), "window-object-cleared",
 				G_CALLBACK(window_object_cleared_cb), this);
 			g_signal_connect(
-				G_OBJECT(webView), "navigation-requested",
-				G_CALLBACK(navigation_requested_cb), this);
-			g_signal_connect(
-				G_OBJECT(webView), "new-window-navigation-requested",
-				G_CALLBACK(new_window_navigation_requested_cb), this);
+				G_OBJECT(webView), "new-window-policy-decision-requested",
+				G_CALLBACK(new_window_policy_decision_callback), this);
 			g_signal_connect(
 				G_OBJECT(webView), "populate-popup",
 				G_CALLBACK(populate_popup_cb), this);
 			g_signal_connect(
 				G_OBJECT(webView), "load-finished",
 				G_CALLBACK(load_finished_cb), this);
-	
-			// Tell Titanium what WebKit is using for a user-agent
-			SharedKObject global = host->GetGlobalObject();
-			if (global->Get("userAgent")->IsUndefined())
-			{
-				gchar* user_agent = webkit_web_view_get_user_agent(webView);
-				global->Set("userAgent", Value::NewString(user_agent));
-				g_free(user_agent);
-			}
-	
+
 			WebKitWebSettings* settings = webkit_web_settings_new();
 			g_object_set(G_OBJECT(settings), "enable-developer-extras", TRUE, NULL);
 			webkit_web_view_set_settings(WEBKIT_WEB_VIEW(webView), settings);
@@ -112,7 +97,7 @@ namespace ti
 			WebKitWebInspector *inspector = webkit_web_view_get_inspector(webView);
 			g_signal_connect(
 				G_OBJECT(inspector), "inspect-web-view",
-				G_CALLBACK(create_inspector_cb), this);
+				G_CALLBACK(inspect_web_view_cb), this);
 			g_signal_connect(
 				G_OBJECT(inspector), "show-window",
 				G_CALLBACK(inspector_show_window_cb), this);
@@ -137,21 +122,18 @@ namespace ti
 			/* main window vbox */
 			this->vbox = gtk_vbox_new(FALSE, 0);
 			gtk_box_pack_start(GTK_BOX(vbox), GTK_WIDGET(view_container), TRUE, TRUE, 0);
-	
+
 			/* main window */
 			GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 			gtk_widget_set_name(window, this->config->GetTitle().c_str());
 			gtk_window_set_title(GTK_WINDOW(window), this->config->GetTitle().c_str());
-	
+
 			this->destroyCallbackId = g_signal_connect(
 				G_OBJECT(window), "destroy", G_CALLBACK(destroy_cb), this);
-			g_signal_connect(G_OBJECT(window), "event",
-			                 G_CALLBACK(event_cb), this);
-	
+			g_signal_connect(
+				G_OBJECT(window), "event", G_CALLBACK(event_cb), this);
+
 			gtk_container_add(GTK_CONTAINER(window), vbox);
-	
-			webkit_web_view_register_url_scheme_as_local("app");
-			webkit_web_view_register_url_scheme_as_local("ti");
 	
 			this->gtkWindow = GTK_WINDOW(window);
 			this->webView = webView;
@@ -165,18 +147,20 @@ namespace ti
 			this->SetupIcon();
 			this->SetTopMost(config->IsTopMost());
 			this->SetCloseable(config->IsCloseable());
+			this->SetResizable(config->IsResizable());
+
 			// TI-62: Transparency currently causes bad crashes
-			// this->SetupTransparency();
+			//this->SetupTransparency();
 
 			gtk_widget_grab_focus(GTK_WIDGET(webView));
 			webkit_web_view_open(webView, this->config->GetURL().c_str());
-	
+
 			if (this->IsVisible())
 			{
 				gtk_widget_show_all(window);
 			}
 	
-			if (this->config->IsFullScreen())
+			if (this->config->IsFullscreen())
 			{
 				gtk_window_fullscreen(this->gtkWindow);
 			}
@@ -190,7 +174,7 @@ namespace ti
 			{
 				this->Minimize();
 			}
-	
+
 			UserWindow::Open();
 			this->FireEvent(OPENED);
 		}
@@ -229,9 +213,9 @@ namespace ti
 			this->Destroyed();
 		}
 		this->RemoveOldMenu(); // Cleanup old menu
-	
+
 		UserWindow::Close();
-		this->FireEvent(CLOSED);
+		this->Closed();
 	}
 	
 	void GtkUserWindow::SetupTransparency()
@@ -326,6 +310,15 @@ namespace ti
 			{
 				hints.min_height = min_height;
 			}
+
+			if (!config->IsResizable())
+			{
+				hints.max_width = this->config->GetWidth();
+				hints.max_height = this->config->GetHeight();
+				hints.min_width = this->config->GetWidth();
+				hints.min_height = this->config->GetHeight();
+			}
+
 			GdkWindowHints mask = (GdkWindowHints) (GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
 			gtk_window_set_geometry_hints(this->gtkWindow, NULL, &hints, mask);
 		}
@@ -339,12 +332,12 @@ namespace ti
 			int y = this->config->GetY();
 	
 			GdkScreen* screen = gdk_screen_get_default();
-			if (x == UserWindow::CENTERED)
+			if (x == UIBinding::CENTERED)
 			{
 				x = (gdk_screen_get_width(screen) - this->GetWidth()) / 2;
 				this->config->SetX(x);
 			}
-			if (y == UserWindow::CENTERED)
+			if (y == UIBinding::CENTERED)
 			{
 				y = (gdk_screen_get_height(screen) - this->GetHeight()) / 2;
 				this->config->SetY(y);
@@ -385,19 +378,20 @@ namespace ti
 			return;
 	
 		GdkPixbuf* icon = NULL; // NULL is an unset.
-		SharedString iconPath = this->iconPath;
-		if (iconPath.isNull() && !UIModule::GetIcon().isNull())
-			iconPath = UIModule::GetIcon();
+		std::string iconPath = this->iconPath;
+
+		if (iconPath.empty()) {
+			GtkUIBinding* b = static_cast<GtkUIBinding*>(UIBinding::GetInstance());
+			iconPath = b->GetIcon();
+		}
 	
-		if (!iconPath.isNull())
+		if (!iconPath.empty())
 		{
 			GError* error = NULL;
-			icon = gdk_pixbuf_new_from_file(iconPath->c_str(), &error);
+			icon = gdk_pixbuf_new_from_file(iconPath.c_str(), &error);
 	
-			if (icon == NULL && error != NULL)
-			{
-				std::cerr << "Could not load icon because: "
-				          << error->message << std::endl;
+			if (icon == NULL && error != NULL) {
+				logger->Error("Failed to load icon: %s\n", error->message);
 				g_error_free(error);
 			}
 		}
@@ -480,29 +474,18 @@ namespace ti
 	
 		return FALSE;
 	}
-	
-	static gint navigation_requested_cb(
+
+	static gint new_window_policy_decision_callback(
 		WebKitWebView* webView,
-		WebKitWebFrame* web_frame,
-		WebKitNetworkRequest* request)
-	{
-		const gchar* uri = webkit_network_request_get_uri(request);
-		std::string new_uri = AppConfig::Instance()->InsertAppIDIntoURL(uri);
-		webkit_network_request_set_uri(request, new_uri.c_str());
-		return WEBKIT_NAVIGATION_RESPONSE_ACCEPT;
-	}
-	
-	static gint new_window_navigation_requested_cb(
-		WebKitWebView* webView,
-		WebKitWebFrame* web_frame,
+		WebKitWebFrame* frame,
 		WebKitNetworkRequest* request,
-		gchar* frame_name)
+		WebKitWebNavigationAction* navigationAction,
+		WebKitWebPolicyDecision *policyDecision,
+		gchar* frameName)
 	{
-		const char *sbrowser = "ti:systembrowser";
-		gchar* frame_name_case = g_utf8_casefold(frame_name, g_utf8_strlen(frame_name, -1));
-		gchar* system_browser = g_utf8_casefold(sbrowser, g_utf8_strlen(sbrowser, -1));
-	
-		if (g_utf8_collate(frame_name_case, system_browser) == 0)
+		gchar* frame_name_case = g_utf8_casefold(frameName, g_utf8_strlen(frameName, -1));
+		if (g_utf8_collate(frame_name_case, "ti:systembrowser") == 0 ||
+			g_utf8_collate(frame_name_case, "_blank") == 0)
 		{
 			gchar* url = strdup(webkit_network_request_get_uri(request));
 			if (url[strlen(url)-1] == '/')
@@ -511,12 +494,14 @@ namespace ti
 			std::vector<std::string> args;
 			args.push_back(std::string(url));
 			Poco::Process::launch("xdg-open", args);
-			return WEBKIT_NAVIGATION_RESPONSE_IGNORE;
+			webkit_web_policy_decision_ignore(policyDecision);
 		}
 		else
 		{
-			return WEBKIT_NAVIGATION_RESPONSE_ACCEPT;
+			webkit_web_policy_decision_use(policyDecision);
 		}
+
+		return TRUE;
 	}
 	
 	static void load_finished_cb(
@@ -527,10 +512,15 @@ namespace ti
 		JSGlobalContextRef context = webkit_web_frame_get_global_context(frame);
 		JSObjectRef global_object = JSContextGetGlobalObject(context);
 		SharedKObject frame_global = new KKJSObject(context, global_object);
-		std::string uri = webkit_web_frame_get_uri(frame);
-	
-		GtkUserWindow* user_window = static_cast<GtkUserWindow*>(data);
-		user_window->PageLoaded(frame_global, uri, context);
+
+		// If uri is NULL, then likely this is the result of a cancel,
+		// so don't report it as a PageLoad
+		const gchar* uri = webkit_web_frame_get_uri(frame);
+		if (uri) {
+			std::string uriString = uri;
+			GtkUserWindow* user_window = static_cast<GtkUserWindow*>(data);
+			user_window->PageLoaded(frame_global, uriString, context);
+		}
 	}
 	
 	static void window_object_cleared_cb(
@@ -550,32 +540,37 @@ namespace ti
 		GtkMenu *menu,
 		gpointer data)
 	{
-		GtkUserWindow* user_window = (GtkUserWindow*) data;
-		SharedPtr<GtkMenuItemImpl> m =
-			user_window->GetContextMenu().cast<GtkMenuItemImpl>();
+		GtkUserWindow* userWindow = static_cast<GtkUserWindow*>(data);
+		AutoPtr<GtkMenu> m = userWindow->GetContextMenu().cast<GtkMenu>();
 	
-		if (m.isNull())
-			m = UIModule::GetContextMenu().cast<GtkMenuItemImpl>();
-	
-		// If we are not in debug mode, remove the default WebKit menu items
-		if (!user_window->GetHost()->IsDebugMode())
-		{
-			GList* children = gtk_container_get_children(GTK_CONTAINER(menu));
-			for (size_t i = 0; i < g_list_length(children); i++)
-			{
-				GtkWidget* w = (GtkWidget*) g_list_nth_data(children, i);
-				gtk_container_remove(GTK_CONTAINER(menu), w);
-			}
+		if (m.isNull()) {
+			GtkUIBinding* b = static_cast<GtkUIBinding*>(UIBinding::GetInstance());
+			m = b->GetContextMenu().cast<GtkMenu>();
 		}
 	
-		if (m.isNull())
-			return;
-	
-		m->AddChildrenTo(GTK_WIDGET(menu));
+		// Remove existing unused context menu items
+		GList* children = gtk_container_get_children(GTK_CONTAINER(menu));
+		size_t extent = g_list_length(children);
+
+		// If we are in debug mode, leave the last two --
+		// a separator and the web inspector
+		if (userWindow->GetHost()->IsDebugMode())
+			extent = extent - 2;
+
+		// If we are not in debug mode, remove the default WebKit menu items
+		for (size_t i = 0; i < extent; i++)
+		{
+			GtkWidget* w = (GtkWidget*) g_list_nth_data(children, i);
+			gtk_container_remove(GTK_CONTAINER(menu), w);
+		}
+
+		if (!m.isNull()) {
+			m->AddChildrenToNativeMenu(GTK_MENU_SHELL(menu), false);
+		}
 	}
 	
 
-	static WebKitWebView* create_inspector_cb(
+	static WebKitWebView* inspect_web_view_cb(
 		WebKitWebInspector* webInspector,
 		WebKitWebView* page,
 		gpointer data)
@@ -583,11 +578,7 @@ namespace ti
 		GtkWidget* scrolledWindow;
 		GtkWidget* newWebView;
 		GtkUserWindow* userWindow = static_cast<GtkUserWindow*>(data);
-
 		GtkWidget* inspectorWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-		g_signal_connect(
-			G_OBJECT(inspectorWindow), "delete-event",
-			G_CALLBACK(hide_window_cb), userWindow);
 
 		gtk_window_set_title(GTK_WINDOW(inspectorWindow), "Inspector");
 		gtk_window_set_default_size(GTK_WINDOW(inspectorWindow), 400, 300);
@@ -625,16 +616,6 @@ namespace ti
 		}
 	}
 
-	static void hide_window_cb(GtkWidget *widget, gpointer data)
-	{
-		GtkUserWindow* userWindow = static_cast<GtkUserWindow*>(data);
-		GtkWidget* inspectorWindow = userWindow->GetInspectorWindow();
-		if (inspectorWindow)
-		{
-			gtk_widget_hide(inspectorWindow);
-		}
-	}
-
 	void GtkUserWindow::SetInspectorWindow(GtkWidget* inspectorWindow)
 	{
 		this->inspectorWindow = inspectorWindow;
@@ -658,6 +639,10 @@ namespace ti
 		if (this->gtkWindow != NULL)
 		{
 			gtk_widget_show_all(GTK_WIDGET(this->gtkWindow));
+
+			// There is no GDK event to detect when the window is shown,
+			// so we force the firing of this event here.
+			this->FireEvent(SHOWN);
 		}
 	}
 	
@@ -763,12 +748,12 @@ namespace ti
 		return this->config->IsUsingScrollbars();
 	}
 	
-	bool GtkUserWindow::IsFullScreen()
+	bool GtkUserWindow::IsFullscreen()
 	{
-		return this->config->IsFullScreen();
+		return this->config->IsFullscreen();
 	}
 	
-	void GtkUserWindow::SetFullScreen(bool fullscreen)
+	void GtkUserWindow::SetFullscreen(bool fullscreen)
 	{
 		if (fullscreen && this->gtkWindow != NULL)
 		{
@@ -923,11 +908,13 @@ namespace ti
 	{
 		return this->config->IsResizable();
 	}
-	
+
 	void GtkUserWindow::SetResizable(bool resizable)
 	{
 		if (this->gtkWindow != NULL)
-			gtk_window_set_resizable(this->gtkWindow, resizable);
+		{
+			gtk_window_set_resizable(this->gtkWindow, resizable ? TRUE : FALSE);
+		}
 	}
 	
 	bool GtkUserWindow::IsMaximizable()
@@ -990,103 +977,94 @@ namespace ti
 		}
 	}
 	
-	void GtkUserWindow::SetMenu(SharedPtr<MenuItem> value)
+	void GtkUserWindow::SetMenu(AutoMenu value)
 	{
-		SharedPtr<GtkMenuItemImpl> menu = value.cast<GtkMenuItemImpl>();
+		AutoPtr<GtkMenu> menu = value.cast<GtkMenu>();
 		this->menu = menu;
 		this->SetupMenu();
 	}
-	
-	SharedPtr<MenuItem> GtkUserWindow::GetMenu()
+
+	AutoMenu GtkUserWindow::GetMenu()
 	{
 		return this->menu;
 	}
-	
-	void GtkUserWindow::SetContextMenu(SharedPtr<MenuItem> value)
+
+	void GtkUserWindow::SetContextMenu(AutoMenu value)
 	{
-		SharedPtr<GtkMenuItemImpl> menu = value.cast<GtkMenuItemImpl>();
-		this->context_menu = menu;
+		AutoPtr<GtkMenu> menu = value.cast<GtkMenu>();
+		this->contextMenu = menu;
 	}
-	
-	SharedPtr<MenuItem> GtkUserWindow::GetContextMenu()
+
+	AutoMenu GtkUserWindow::GetContextMenu()
 	{
-		return this->context_menu;
+		return this->contextMenu;
 	}
-	
-	
-	void GtkUserWindow::SetIcon(SharedString iconPath)
+
+	void GtkUserWindow::SetIcon(std::string& iconPath)
 	{
 		this->iconPath = iconPath;
 		this->SetupIcon();
 	}
-	
-	SharedString GtkUserWindow::GetIcon()
+
+	std::string& GtkUserWindow::GetIcon()
 	{
 		return this->iconPath;
 	}
-	
+
 	void GtkUserWindow::RemoveOldMenu()
 	{
-	
-		// Only clear a realization if we have one
-		if (!this->menuInUse.isNull() && this->menuBar != NULL)
-			this->menuInUse->ClearRealization(this->menuBar);
-	
-		// Only remove the old menu if we still have a window
-		if (this->gtkWindow != NULL)
-			gtk_container_remove(GTK_CONTAINER(this->vbox), this->menuBar);
-	
-		this->menuInUse = NULL;
-		this->menuBar = NULL;
+		if (!this->activeMenu.isNull() && this->nativeMenu) {
+			this->activeMenu->DestroyNative(GTK_MENU_SHELL(this->nativeMenu));
+		}
+
+		if (this->gtkWindow != NULL && this->nativeMenu) {
+			gtk_container_remove(GTK_CONTAINER(this->vbox), GTK_WIDGET(this->nativeMenu));
+		}
+
+		this->activeMenu = 0;
+		this->nativeMenu = 0;
 	}
-	
+
 	void GtkUserWindow::SetupMenu()
 	{
-		SharedPtr<GtkMenuItemImpl> menu = this->menu;
-		SharedPtr<MenuItem> app_menu = UIModule::GetMenu();
+		AutoPtr<GtkMenu> menu = this->menu;
 	
 		// No window menu, try to use the application menu.
-		if (menu.isNull() && !app_menu.isNull())
+		if (menu.isNull())
 		{
-			menu = app_menu.cast<GtkMenuItemImpl>();
+			GtkUIBinding* b = static_cast<GtkUIBinding*>(UIBinding::GetInstance());
+			menu = b->GetMenu().cast<GtkMenu>();
 		}
 	
 		// Only do this if the menu is actually changing.
-		if (menu == this->menuInUse)
-			return;
-	
-		this->RemoveOldMenu();
-	
-		if (!menu.isNull() && this->gtkWindow != NULL)
-		{
-			GtkWidget* menuBar = menu->GetMenuBar();
-			gtk_box_pack_start(GTK_BOX(this->vbox), menuBar,
-			                   FALSE, FALSE, 2);
-			gtk_box_reorder_child(GTK_BOX(this->vbox), menuBar, 0);
-			gtk_widget_show(menuBar);
-			this->menuBar = menuBar;
+		if (menu.get() != this->activeMenu.get()) {
+			this->RemoveOldMenu();
+
+			if (!menu.isNull() && this->gtkWindow) {
+				GtkMenuBar* newNativeMenu = GTK_MENU_BAR(menu->CreateNativeBar(true));
+				gtk_box_pack_start(GTK_BOX(this->vbox), GTK_WIDGET(newNativeMenu), FALSE, FALSE, 2);
+				gtk_box_reorder_child(GTK_BOX(this->vbox), GTK_WIDGET(newNativeMenu), 0);
+				gtk_widget_show_all(GTK_WIDGET(newNativeMenu));
+				this->nativeMenu = newNativeMenu;
+			}
+			this->activeMenu = menu;
 		}
-	
-		this->menuInUse = menu;
-	
 	}
-	
+
 	void GtkUserWindow::AppMenuChanged()
 	{
-		if (this->menu.isNull())
-		{
+		if (this->menu.isNull()) {
 			this->SetupMenu();
 		}
 	}
-	
+
 	void GtkUserWindow::AppIconChanged()
 	{
-		if (this->iconPath.isNull())
-		{
+		if (this->iconPath.empty()) {
 			this->SetupIcon();
 		}
 	}
-	
+
 	namespace GtkUserWindowNS
 	{
 		std::string openFilesDirectory = "";

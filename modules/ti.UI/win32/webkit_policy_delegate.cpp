@@ -3,10 +3,7 @@
  * see LICENSE in the root folder for details on the license.
  * Copyright (c) 2009 Appcelerator, Inc. All Rights Reserved.
  */
-
-
-#include "webkit_policy_delegate.h"
-#include "win32_user_window.h"
+#include "../ui_module.h"
 #include <shellapi.h>
 #include <string>
 
@@ -125,7 +122,7 @@ namespace ti {
 		std::wstring frame(frameName);
 		transform(frame.begin(), frame.end(), frame.begin(), tolower);
 
-		if(frame == L"ti:systembrowser")
+		if (frame == L"ti:systembrowser" || frame == L"_blank")
 		{
 			BSTR u;
 			request->URL(&u);

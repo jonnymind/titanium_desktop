@@ -15,29 +15,30 @@ namespace ti
 	FileSystemUtils::FileSystemUtils() { }
 	FileSystemUtils::~FileSystemUtils() { }
 	
-	
-	const char* FileSystemUtils::GetFileName(SharedValue v)
+	/*static*/
+	SharedString FileSystemUtils::GetFileName(SharedValue v)
 	{
 		if (v->IsString())
 		{
-			return v->ToString();
+			return new std::string(v->ToString());
 		}
 		else if (v->IsObject())
 		{
-			SharedKObject bo = v->ToObject();
-			SharedPtr<File> file = bo.cast<File>();
-			if (file.isNull())
-			{
-				throw ValueException::FromString("can't convert NULL object to filename");
-			}
-			return file->GetFilename().c_str();
+			return v->ToObject()->DisplayString();
 		}
 		else
 		{
 			std::string message = "can't convert object of type ";
-			message += v->ToTypeString();
+			message += v->GetType();
 			message += " to filename: don't know what to do";
 			throw ValueException::FromString(message);
 		}
+	}
+	
+	/*static*/
+	AutoPtr<File> FileSystemUtils::ToFile(SharedKObject object)
+	{
+		AutoPtr<File> file = object.cast<File>();
+		return file;
 	}
 }

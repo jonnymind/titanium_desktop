@@ -55,7 +55,7 @@ namespace ti
 			else
 			{
 				char msg[255];
-				sprintf(msg, "unknown supported type: %s for argument", arg->ToTypeString());
+				sprintf(msg, "unknown supported type: %s for argument", arg->GetType().c_str());
 				throw ValueException::FromString(msg);
 			}
 		} 
@@ -110,7 +110,7 @@ namespace ti
 		std::vector<bool*> bools;
 	};
 	
-	DatabaseBinding::DatabaseBinding(Host *host) : host(host), database(NULL), session(NULL)
+	DatabaseBinding::DatabaseBinding(Host *host) : StaticBoundObject("DB"), host(host), database(NULL), session(NULL)
 	{
 		/**
 		 * @tiapi(method=True,name=Database.DB.execute,since=0.4) Executes an SQL query on the database.
@@ -130,12 +130,12 @@ namespace ti
 		/**
 		 * @tiapi(property=True,name=Database.DB.lastInsertRowId) The row id of the last insert operation.
 		 */
-		SET_INT_PROP("lastInsertRowId",0);
+		this->SetInt("lastInsertRowId", 0);
 		
 		/**
 		 * @tiapi(property=True,name=Database.DB.rowsAffected) The number of rows affected by the last execute
 		 */
-		SET_INT_PROP("rowsAffected",0);
+		this->SetInt("rowsAffected", 0);
 	}
 	DatabaseBinding::~DatabaseBinding()
 	{
@@ -161,9 +161,6 @@ namespace ti
 	}
 	void DatabaseBinding::Open(const ValueList& args, SharedValue result)
 	{
-		//FIXME: name can be optional which is "unnamed"
-		args.VerifyException("open", "s?");
-		
 		if (database)
 		{
 			delete database;
@@ -176,7 +173,7 @@ namespace ti
 		}
 		std::string appid = host->GetApplicationID();
 		std::string dbdir = FileUtils::GetApplicationDataDirectory(appid);
-		dbname = args.at(0)->ToString();
+		dbname = args.GetString(0, "unnamed");
 		origin = GetSecurityOrigin(appid);
 
 		static Logger* logger = Logger::Get("Database");
@@ -218,8 +215,9 @@ namespace ti
 		}
 		else
 		{
-			char msg[255];
-			sprintf(msg, "unknown supported type: %s for argument",arg->ToTypeString());
+			std::string msg = "Unsupported type for argument (";
+			msg.append(arg->GetType());
+			msg.append(")");
 			throw ValueException::FromString(msg);
 		}
 	}
@@ -267,7 +265,7 @@ namespace ti
 
 			logger->Debug("sql returned: %d rows for result",count);
 
-			SET_INT_PROP("rowsAffected",count);
+			this->SetInt("rowsAffected",count);
 
 			// get the row insert id
 			Statement ss(session->GetSession());
@@ -276,7 +274,7 @@ namespace ti
 			Poco::DynamicAny value = rr.value(0);
 			int i;
 			value.convert(i);
-			SET_INT_PROP("lastInsertRowId",i);
+			this->SetInt("lastInsertRowId",i);
 
 			
 			if (count > 0)

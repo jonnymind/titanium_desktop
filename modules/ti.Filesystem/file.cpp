@@ -22,7 +22,8 @@
 
 namespace ti
 {
-	File::File(std::string filename)
+	File::File(std::string filename) :
+		StaticBoundObject("File")
 	{
 
 		Poco::Path pocoPath(Poco::Path::expand(filename));
@@ -466,7 +467,7 @@ namespace ti
 	{
 		try
 		{
-			std::string dest = FileSystemUtils::GetFileName(args.at(0));
+			std::string dest = FileSystemUtils::GetFileName(args.at(0))->c_str();
 			Poco::File from(this->filename);
 			from.copyTo(dest);
 			result->SetBool(true);
@@ -480,7 +481,7 @@ namespace ti
 	{
 		try
 		{
-			std::string dest = FileSystemUtils::GetFileName(args.at(0));
+			std::string dest = FileSystemUtils::GetFileName(args.at(0))->c_str();
 			Poco::File from(this->filename);
 			from.moveTo(dest);
 			result->SetBool(true);
@@ -595,8 +596,7 @@ namespace ti
 				std::vector<std::string> files;
 				dir.list(files);
 
-				SharedPtr<StaticBoundList> fileList = new StaticBoundList();
-
+				SharedKList fileList = new StaticBoundList();
 				for(size_t i = 0; i < files.size(); i++)
 				{
 					std::string entry = files.at(i);
@@ -654,7 +654,7 @@ namespace ti
 			Poco::File file(this->filename);
 			Poco::Timestamp ts = file.created();
 
-			result->SetDouble(ts.epochTime());
+			result->SetDouble(ts.epochMicroseconds());
 		}
 		catch (Poco::Exception& exc)
 		{
@@ -668,7 +668,7 @@ namespace ti
 			Poco::File file(this->filename);
 			Poco::Timestamp ts = file.getLastModified();
 
-			result->SetDouble(ts.epochTime());
+			result->SetDouble(ts.epochMicroseconds());
 		}
 		catch (Poco::Exception& exc)
 		{
@@ -734,14 +734,14 @@ namespace ti
 		}
 	}
 	void File::GetSpaceAvailable(const ValueList& args, SharedValue result)
-	{
-		result->SetNull();
-		Poco::Path path(this->filename);
+	{	
+		double diskSize = -1.0;
+		std::string error;
 
 #ifdef OS_OSX
-		NSString *p = [NSString stringWithCString:this->filename.c_str()];
+		NSString *p = [NSString stringWithCString:this->filename.c_str() encoding:NSUTF8StringEncoding];
 		unsigned long avail = [[[[NSFileManager defaultManager] fileSystemAttributesAtPath:p] objectForKey:NSFileSystemFreeSize] longValue];
-		result->SetDouble(avail);
+		diskSize = (double)avail;
 #elif defined(OS_WIN32)
 		unsigned __int64 i64FreeBytesToCaller;
 		unsigned __int64 i64TotalBytes;
@@ -752,16 +752,28 @@ namespace ti
 			(PULARGE_INTEGER) &i64TotalBytes,
 			(PULARGE_INTEGER) &i64FreeBytes))
 		{
-			result->SetDouble((double) i64FreeBytesToCaller);
+			diskSize = (double)i64FreeBytesToCaller;
+		}
+		else
+		{
+			error = Win32Utils::QuickFormatMessage(GetLastError());
 		}
 #elif defined(OS_LINUX)
 		struct statvfs stats;
 		if (statvfs(this->filename.c_str(), &stats) == 0)
 		{
 			unsigned long avail = stats.f_bsize * static_cast<unsigned long>(stats.f_bavail);
-			result->SetDouble(avail);
+			diskSize = (double)avail;
 		}
 #endif
+		if ( diskSize >=0.0 )
+		{
+			result->SetDouble(diskSize);
+		}
+		else 
+		{
+			throw ValueException::FromString("Cannot determine diskspace on filename '" + this->filename + "' with error message " +error);
+		}
 	}
 	void File::CreateShortcut(const ValueList& args, SharedValue result)
 	{
@@ -770,11 +782,11 @@ namespace ti
 			throw ValueException::FromString("createShortcut takes a parameter");
 		}
 		std::string from = this->filename;
-		std::string to = args.at(0)->IsString() ? args.at(0)->ToString() : FileSystemUtils::GetFileName(args.at(0));
+		std::string to = args.at(0)->IsString() ? args.at(0)->ToString() : FileSystemUtils::GetFileName(args.at(0))->c_str();
 
 #ifdef OS_OSX	//TODO: My spidey sense tells me that Cocoa might have a better way for this. --BTH
-		NSMutableString* originalPath = [NSMutableString stringWithCString:from.c_str()];
-		NSString* destPath = [NSString stringWithCString:to.c_str()];
+		NSMutableString* originalPath = [NSMutableString stringWithCString:from.c_str() encoding:NSUTF8StringEncoding];
+		NSString* destPath = [NSString stringWithCString:to.c_str() encoding:NSUTF8StringEncoding];
 		NSString* cwd = nil;
 		NSFileManager* fm = [NSFileManager defaultManager];
 
@@ -782,7 +794,7 @@ namespace ti
 		if (args.size()>1)
 		{
 			cwd = [fm currentDirectoryPath];
-			NSString *p = [NSString stringWithCString:FileSystemUtils::GetFileName(args.at(1))];
+			NSString *p = [NSString stringWithCString:FileSystemUtils::GetFileName(args.at(1))->c_str() encoding:NSUTF8StringEncoding];
 			BOOL isDirectory = NO;
 			if ([fm fileExistsAtPath:p isDirectory:&isDirectory])
 			{
@@ -960,7 +972,7 @@ namespace ti
 		try
 		{
 			Poco::File from(this->filename);
-			Poco::File to(FileSystemUtils::GetFileName(args.at(0)));
+			Poco::File to(FileSystemUtils::GetFileName(args.at(0))->c_str());
 			std::string from_s = from.path();
 			std::string to_s = to.path();
 			if (!to.exists())

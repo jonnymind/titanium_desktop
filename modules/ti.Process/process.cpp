@@ -16,6 +16,7 @@ using Poco::RunnableAdapter;
 namespace ti
 {
 	Process::Process(ProcessBinding* parent, std::string& cmd, std::vector<std::string>& args) :
+		StaticBoundObject("Process"),
 		running(false),
 		complete(false),
 		pid(-1),
@@ -51,7 +52,7 @@ namespace ti
 		 * @tiapi(property=True,type=integer,name=Process.Process.pid,version=0.2)
 		 * @tiapi The process id of the Process object
 		 */
-		this->SetNull("pid");
+		this->Set("pid",Value::NewInt(-1));
 
 		/**
 		 * @tiapi(property=True,type=boolean,name=Process.Process.running,version=0.2)

@@ -36,7 +36,7 @@ namespace ti
 	{
 
 		public:
-		GtkUserWindow(WindowConfig*, SharedUserWindow&);
+		GtkUserWindow(WindowConfig*, AutoUserWindow&);
 		virtual ~GtkUserWindow();
 		void Destroyed();
 		void SetupDecorations();
@@ -46,8 +46,8 @@ namespace ti
 		void SetupPosition();
 		void SetupMenu();
 		void SetupIcon();
-		void AppMenuChanged();
-		void AppIconChanged();
+		virtual void AppMenuChanged();
+		virtual void AppIconChanged();
 		void RemoveOldMenu();
 
 		void ShowFileChooser(
@@ -97,7 +97,7 @@ namespace ti
 		bool IsUsingChrome();
 		void SetUsingChrome(bool chrome);
 		bool IsUsingScrollbars();
-		bool IsFullScreen();
+		bool IsFullscreen();
 		std::string GetId();
 		void Open();
 		void Close();
@@ -137,18 +137,16 @@ namespace ti
 		bool IsVisible();
 		double GetTransparency();
 		void SetTransparency(double transparency);
-		void SetFullScreen(bool fullscreen);
+		void SetFullscreen(bool fullscreen);
 		bool IsTopMost();
 		void SetTopMost(bool topmost);
+		void SetMenu(AutoMenu);
+		AutoMenu GetMenu();
+		void SetContextMenu(AutoMenu);
+		AutoMenu GetContextMenu();
 
-		void SetMenu(SharedPtr<MenuItem> menu);
-		SharedPtr<MenuItem> GetMenu();
-
-		void SetContextMenu(SharedPtr<MenuItem> menu);
-		SharedPtr<MenuItem> GetContextMenu();
-
-		void SetIcon(SharedString iconPath);
-		SharedString GetIcon();
+		void SetIcon(std::string& iconPath);
+		std::string& GetIcon();
 
 		void SetInspectorWindow(GtkWidget* inspectorWindow);
 		GtkWidget *GetInspectorWindow();
@@ -167,23 +165,12 @@ namespace ti
 		bool topmost;
 		gulong destroyCallbackId;
 
-		// The window-specific menu.
-		SharedPtr<GtkMenuItemImpl> menu;
-
-		// This window's menu -- may just be a pointer to the app menu
-		SharedPtr<GtkMenuItemImpl> menuInUse;
-
-		// The widget this window uses for a menu.
-		GtkWidget* menuBar;
-
-		// The path to this window's icon
-		SharedString iconPath;
-
-		// The widget this window uses for a context menu.
-		SharedPtr<GtkMenuItemImpl> context_menu;
-
-		// This window's web inspector window
-		GtkWidget *inspectorWindow;
+		AutoPtr<GtkMenu> menu; // The window-specific menu.
+		AutoPtr<GtkMenu> activeMenu; // This window's active menu 
+		AutoPtr<GtkMenu> contextMenu; // The window specific context menu 
+		::GtkMenuBar* nativeMenu; // The widget this window uses for a menu.
+		std::string iconPath; // The path to this window's icon
+		GtkWidget *inspectorWindow; // This window's web inspector window
 
 		void _FileChooserWork(const ValueList&, SharedValue);
 		static std::string openFilesDirectory;

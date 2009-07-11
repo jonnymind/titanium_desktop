@@ -5,13 +5,6 @@
  */
 #ifndef OSX_USER_WINDOW_H
 #define OSX_USER_WINDOW_H
-
-#import "preinclude.h"
-#import <WebKit/WebKit.h>
-#import "../menu_item.h"
-#import "../user_window.h"
-#import "native_window.h"
-
 namespace ti
 {
 	class OSXUIBinding;
@@ -20,11 +13,11 @@ namespace ti
 	class OSXUserWindow : public UserWindow
 	{
 		public:
-			OSXUserWindow(WindowConfig* config, SharedUserWindow& parent);
+			OSXUserWindow(WindowConfig* config, AutoUserWindow& parent);
 			~OSXUserWindow();
 		public:
 
-			void OSXUserWindow::OpenChooserDialog(
+			void OpenChooserDialog(
 				bool files,
 				SharedKMethod callback,
 				bool multiple,
@@ -71,7 +64,7 @@ namespace ti
 			bool IsUsingChrome();
 			void SetUsingChrome(bool chrome);
 			bool IsUsingScrollbars();
-			bool IsFullScreen();
+			bool IsFullscreen();
 			std::string GetId();
 			void Open();
 			void Close();
@@ -109,30 +102,28 @@ namespace ti
 			bool IsVisible();
 			double GetTransparency();
 			void SetTransparency(double transparency);
-			void SetFullScreen(bool fullscreen);
+			void SetFullscreen(bool fullscreen);
 			bool IsTopMost();
 			void SetTopMost(bool topmost);
 
-			void SetMenu(SharedPtr<MenuItem> menu);
-			SharedPtr<MenuItem> GetMenu();
-			void SetContextMenu(SharedPtr<MenuItem> menu);
-			SharedPtr<MenuItem> GetContextMenu();
-			void SetIcon(SharedString icon_path);
-			SharedString GetIcon();
+			void SetMenu(AutoMenu menu);
+			AutoMenu GetMenu();
+			void SetContextMenu(AutoMenu menu);
+			AutoMenu GetContextMenu();
+			void SetIcon(std::string& icon_path);
+			std::string& GetIcon();
 
-			NativeWindow* GetNative() { return window; }
+			NativeWindow* GetNative() { return nativeWindow; }
 			void Focused();
 			void Unfocused();
 
 		private:
-			NativeWindow *window;
-			bool opened;
-			bool closed;
+			NativeWindow *nativeWindow;
 			bool topmost;
 			bool focused;
-			SharedPtr<MenuItem> menu;
-			SharedPtr<MenuItem> context_menu;
-			SharedPtr<OSXUIBinding> osx_binding;
+			AutoPtr<OSXMenu> menu;
+			AutoPtr<OSXMenu> contextMenu;
+			AutoPtr<OSXUIBinding> osxBinding;
 			static bool initial;
 
 			NSScreen* GetWindowScreen();
@@ -141,9 +132,6 @@ namespace ti
 			double real_y;
 			double real_w;
 			double real_h;
-
-			void InstallMenu(OSXMenuItem *menu);
-
 			DISALLOW_EVIL_CONSTRUCTORS(OSXUserWindow);
 	};
 }

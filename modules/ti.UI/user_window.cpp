@@ -3,19 +3,12 @@
  * see LICENSE in the root folder for details on the license.
  * Copyright (c) 2008 Appcelerator, Inc. All Rights Reserved.
  */
-
-/* This object is that represents Titanium.UI.currentWindow */
-
 #include "ui_module.h"
-#include <stdlib.h>
 
 using namespace ti;
-
-// Initialize our constants here
-int UserWindow::CENTERED = WindowConfig::DEFAULT_POSITION;
-
-UserWindow::UserWindow(WindowConfig *config, SharedUserWindow& parent) :
-	kroll::StaticBoundObject(),
+UserWindow::UserWindow(WindowConfig *config, AutoUserWindow& parent) :
+	AccessorBoundObject("UserWindow"),
+	logger(Logger::Get("UI.UserWindow")),
 	binding(UIModule::GetInstance()->GetUIBinding()),
 	host(kroll::Host::GetInstance()),
 	config(config),
@@ -26,16 +19,14 @@ UserWindow::UserWindow(WindowConfig *config, SharedUserWindow& parent) :
 {
 	this->shared_this = this;
 
+	// This method is on Titanium.UI, but will be delegated to this class.
 	/**
 	 * @tiapi(method=True,name=UI.getCurrentWindow,since=0.4) Returns the current window
 	 */
-	// This method is on Titanium.UI, but will be delegated to this class.
 	this->SetMethod("getCurrentWindow", &UserWindow::_GetCurrentWindow);
 
-	/**
-	 * @tiapi(property=True,type=integer,name=UI.UserWindow.CENTERED,since=0.3) The CENTERED constant
-	 */
-	this->Set("CENTERED", Value::NewInt(UserWindow::CENTERED));
+	// @tiproperty[integer, UI.UserWindow.CENTERED,since=0.3,deprecated=true] The CENTERED event constant
+	this->Set("CENTERED", Value::NewInt(UIBinding::CENTERED));
 
 	/**
 	 * @tiapi(method=True,name=UI.UserWindow.hide,since=0.2) Hides a window
@@ -90,16 +81,28 @@ UserWindow::UserWindow(WindowConfig *config, SharedUserWindow& parent) :
 	this->SetMethod("setUsingChrome", &UserWindow::_SetUsingChrome);
 
 	/**
-	 * @tiapi(method=True,name=UI.UserWindow.isFullscreen,since=0.2) Checks whether a window is in fullscreen
-	 * @tiarg(for=UI.UserWindow.isFullscreen,name=chrome,type=boolean) true if the window is in fullscreen, false if otherwise
+	 * @tiapi(method=True,name=UI.UserWindow.isFullScreen,since=0.2,deprecated=True) Checks whether a window is in fullscreen
+	 * @tiarg(for=UI.UserWindow.isFullScreen,name=chrome,type=boolean) true if the window is in fullscreen, false if otherwise
 	 */
-	this->SetMethod("isFullScreen", &UserWindow::_IsFullScreen);
+	this->SetMethod("isFullScreen", &UserWindow::_IsFullscreen);
 
 	/**
-	 * @tiapi(method=True,name=UI.UserWindow.setFullScreen,since=0.2) Makes a window fullscreen
+	 * @tiapi(method=True,name=UI.UserWindow.isFullscreen,since=1.0) Checks whether a window is in fullscreen
+	 * @tiarg(for=UI.UserWindow.isFullscreen,name=chrome,type=boolean) true if the window is in fullscreen, false if otherwise
+	 */
+	this->SetMethod("isFullscreen", &UserWindow::_IsFullscreen);
+
+	/**
+	 * @tiapi(method=True,name=UI.UserWindow.setFullScreen,since=0.2,deprecated=True) Makes a window fullscreen
 	 * @tiarg(for=UI.UserWindow.setFullScreen,name=fullscreen,type=boolean) set to true for fullscreen, false if otherwise
 	 */
-	this->SetMethod("setFullScreen", &UserWindow::_SetFullScreen);
+	this->SetMethod("setFullScreen", &UserWindow::_SetFullscreen);
+
+	/**
+	 * @tiapi(method=True,name=UI.UserWindow.setFullscreen,since=1.0) Makes a window fullscreen
+	 * @tiarg(for=UI.UserWindow.setFullscreen,name=fullscreen,type=boolean) set to true for fullscreen, false if otherwise
+	 */
+	this->SetMethod("setFullscreen", &UserWindow::_SetFullscreen);
 
 	/**
 	 * @tiapi(method=True,returns=integer,name=UI.UserWindow.getID,since=0.2) Returns the id of a window
@@ -342,35 +345,37 @@ UserWindow::UserWindow(WindowConfig *config, SharedUserWindow& parent) :
 
 
 	/**
-	 * @tiapi(method=True,name=UI.UserWindow.setMenu,since=0.2) Sets a window's menu
-	 * @tiarg(for=UI.UserWindow.setMenu,type=object,name=menu) a MenuItem object
+	 * @tiapi(method=True,name=UI.UserWindow.setMenu,since=1.0)
+	 * @tiapi Set this window's menu
+	 * @tiarg[UI.Menu|null, menu] The Menu object to use as the menu or null to unset
 	 */
 	this->SetMethod("setMenu", &UserWindow::_SetMenu);
 
-
 	/**
-	 * @tiapi(method=True,name=UI.UserWindow.getMenu,since=0.2) Returns a window's menu
-	 * @tiresult(for=UI.UserWindow.getMenu,type=object) a MenuItem object
+	 * @tiapi(method=True,name=UI.UserWindow.getMenu,since=1.0) 
+	 * Get this window's menu
+	 * @tiresult[UI.Menu|null] This window's Menu or null if it is unset
 	 */
 	this->SetMethod("getMenu", &UserWindow::_GetMenu);
 
 
 	/**
-	 * @tiapi(method=True,name=UI.UserWindow.setContextMenu,since=0.2) Sets a window's context menu
-	 * @tiarg(for=UI.UserWindow.setContextMenu,type=object,name=menu) a MenuItem object
+	 * @tiapi(method=True,name=UI.UserWindow.setContextMenu,since=1.0)
+	 * @tiapi Set this window's context menu
+	 * @tiarg[UI.Menu|null, menu] The Menu object to use as the context menu or null to unset
 	 */
 	this->SetMethod("setContextMenu", &UserWindow::_SetContextMenu);
 
-
 	/**
-	 * @tiapi(method=True,name=UI.UserWindow.getContextMenu,since=0.2) Returns a window's context menu
-	 * @tiresult(for=UI.UserWindow.getContextMenu,type=object) a MenuItem object
+	 * @tiapi(method=True,name=UI.UserWindow.getContetMenu,since=1.0)
+	 * Get this window's context menu
+	 * @tiresult[UI.Menu|null] This window's context menu or null if it is unset
 	 */
 	this->SetMethod("getContextMenu", &UserWindow::_GetContextMenu);
 
 	/**
 	 * @tiapi(method=True,name=UI.UserWindow.setIcon,since=0.2) Sets a window's icon
-	 * @tiarg(for=UI.UserWindow.setIcon,type=string,name=icon) path to the icon file
+	 * @tiarg(for=UI.UserWindow.setIcon,type=String,name=icon) path to the icon file
 	 */
 	this->SetMethod("setIcon", &UserWindow::_SetIcon);
 
@@ -452,7 +457,7 @@ UserWindow::~UserWindow()
 	}
 }
 
-SharedUserWindow UserWindow::GetSharedPtr()
+AutoUserWindow UserWindow::GetAutoPtr()
 {
 	return this->shared_this;
 }
@@ -481,16 +486,22 @@ void UserWindow::Open()
 
 void UserWindow::Close()
 {
-	this->active = false;
+	this->FireEvent(CLOSE); // fire our close event
+	this->active = false; // prevent further modification
+}
+
+void UserWindow::Closed()
+{
+	this->FireEvent(CLOSED);
 
 	// Close all children and cleanup
-	std::vector<SharedUserWindow>::iterator iter = this->children.begin();
+	std::vector<AutoUserWindow>::iterator iter = this->children.begin();
 	while (iter != this->children.end())
 	{
 		// Save a pointer to the child here, because it may
 		// be freed by the SharedPtr otherwise and that will
 		// make this iterator seriously, seriously unhappy.
-		SharedUserWindow child = (*iter);
+		AutoUserWindow child = (*iter);
 		iter = children.erase(iter);
 		child->Close();
 	}
@@ -505,17 +516,11 @@ void UserWindow::Close()
 	// Tell the UIBinding that we are closed
 	this->binding->RemoveFromOpenWindows(this->shared_this);
 
-	// fire our close event
-	this->FireEvent(CLOSE);
-
 	// When we have no more open windows, we exit...
-	std::vector<SharedUserWindow> windows = this->binding->GetOpenWindows();
-	if (windows.size() == 0)
-	{
+	std::vector<AutoUserWindow> windows = this->binding->GetOpenWindows();
+	if (windows.size() == 0) {
 		this->host->Exit(0);
-	}
-	else
-	{
+	} else {
 		windows.at(0)->Focus();
 	}
 
@@ -681,26 +686,26 @@ void UserWindow::_IsUsingScrollbars(const kroll::ValueList& args, kroll::SharedV
 	}
 }
 
-void UserWindow::_IsFullScreen(const kroll::ValueList& args, kroll::SharedValue result)
+void UserWindow::_IsFullscreen(const kroll::ValueList& args, kroll::SharedValue result)
 {
 	if (this->active)
 	{
-		result->SetBool(this->IsFullScreen());
+		result->SetBool(this->IsFullscreen());
 	}
 	else
 	{
-		result->SetBool(this->config->IsFullScreen());
+		result->SetBool(this->config->IsFullscreen());
 	}
 }
 
-void UserWindow::_SetFullScreen(const kroll::ValueList& args, kroll::SharedValue result)
+void UserWindow::_SetFullscreen(const kroll::ValueList& args, kroll::SharedValue result)
 {
-	args.VerifyException("setFullScreen", "b");
+	args.VerifyException("setFullscreen", "b");
 	bool b = args.at(0)->ToBool();
-	this->config->SetFullScreen(b);
+	this->config->SetFullscreen(b);
 	if (this->active)
 	{
-		this->SetFullScreen(b);
+		this->SetFullscreen(b);
 	}
 }
 
@@ -804,7 +809,6 @@ void UserWindow::_SetWidth(const kroll::ValueList& args, kroll::SharedValue resu
 		if (w > 0)
 		{
 			w = UserWindow::Constrain(w, config->GetMinWidth(), config->GetMaxWidth());
-			Logger::Get("UI.UserWindow")->Debug("config->SetWidth(%0.2f)", w);
 			this->config->SetWidth(w);
 			if (this->active)
 			{
@@ -1267,59 +1271,60 @@ void UserWindow::_GetTransparencyColor(const kroll::ValueList& args, kroll::Shar
 
 void UserWindow::_SetMenu(const kroll::ValueList& args, kroll::SharedValue result)
 {
-	SharedPtr<MenuItem> menu = NULL; // A NULL value is an unset
-	if (args.size() > 0 && args.at(0)->IsList())
-	{
-		menu = args.at(0)->ToList().cast<MenuItem>();
+	args.VerifyException("setMenu", "?o");
+	AutoMenu menu = NULL;
+	if (args.size() > 0) {
+		menu = args.at(0)->ToObject().cast<Menu>();
 	}
 	this->SetMenu(menu);
 }
 
 void UserWindow::_GetMenu(const kroll::ValueList& args, kroll::SharedValue result)
 {
-	SharedKList menu = this->GetMenu();
+	AutoMenu menu = this->GetMenu();
 	if (!menu.isNull())
 	{
-		result->SetList(menu);
+		result->SetObject(menu);
 	}
 	else
 	{
-		result->SetUndefined();
+		result->SetNull();
 	}
 }
 
 void UserWindow::_SetContextMenu(const kroll::ValueList& args, kroll::SharedValue result)
 {
-	SharedPtr<MenuItem> menu = NULL; // A NULL value is an unset
-	if (args.size() > 0 && args.at(0)->IsList())
-	{
-		menu = args.at(0)->ToList().cast<MenuItem>();
+	args.VerifyException("setContextMenu", "?o");
+	AutoMenu menu = NULL;
+	if (args.size() > 0) {
+		menu = args.at(0)->ToObject().cast<Menu>();
 	}
 	this->SetContextMenu(menu);
 }
 
 void UserWindow::_GetContextMenu(const kroll::ValueList& args, kroll::SharedValue result)
 {
-	SharedKList menu = this->GetContextMenu();
+	AutoMenu menu = this->GetContextMenu();
 	if (!menu.isNull())
 	{
-		result->SetList(menu);
+		result->SetObject(menu);
 	}
 	else
 	{
-		result->SetUndefined();
+		result->SetNull();
 	}
 }
 
 void UserWindow::_SetIcon(const kroll::ValueList& args, kroll::SharedValue result)
 {
-	SharedString icon_path = NULL; // a NULL value is an unset
-	if (args.size() > 0 && args.at(0)->IsString())
-	{
-		const char *icon_url = args.at(0)->ToString();
-		icon_path = UIModule::GetResourcePath(icon_url);
+	args.VerifyException("setIcon", "s|0");
+	std::string iconPath;
+	if (args.size() > 0) {
+		std::string in = args.GetString(0);
+		iconPath = URLToPathOrURL(in);
 	}
-	this->SetIcon(icon_path);
+
+	this->SetIcon(iconPath);
 }
 
 void UserWindow::_GetIcon(const kroll::ValueList& args, kroll::SharedValue result)
@@ -1365,7 +1370,7 @@ void UserWindow::_CreateWindow(const ValueList& args, SharedValue result)
 		config = new WindowConfig();
 	}
 
-	SharedUserWindow new_window = this->binding->CreateWindow(config, shared_this);
+	AutoUserWindow new_window = this->binding->CreateWindow(config, shared_this);
 	result->SetObject(new_window);
 }
 
@@ -1549,145 +1554,109 @@ void UserWindow::_RemoveEventListener(const ValueList& args, SharedValue result)
 	result->SetBool(false);
 }
 
-void UserWindow::FireEvent(UserWindowEvent event_type, SharedKObject event)
+void UserWindow::FireEvent(UserWindowEvent eventType, SharedKObject event)
 {
 	std::string name;
-	switch (event_type)
+	switch (eventType)
 	{
 		case FOCUSED:
-		{
-			name = "focused";
+			name = UIBinding::FOCUSED;
 			break;
-		}
 		case UNFOCUSED:
-		{
-			name = "unfocused";
+			name = UIBinding::UNFOCUSED;
 			break;
-		}
 		case OPEN:
-		{
-			name = "open";
+			name = UIBinding::OPEN;
 			break;
-		}
 		case OPENED:
-		{
-			name = "opened";
+			name = UIBinding::OPENED;
 			break;
-		}
 		case CLOSE:
-		{
-			name = "close";
+			name = UIBinding::CLOSE;
 			break;
-		}
 		case CLOSED:
-		{
-			name = "closed";
+			name = UIBinding::CLOSED;
 			break;
-		}
 		case HIDDEN:
-		{
-			name = "hidden";
+			name = UIBinding::HIDDEN;
 			break;
-		}
 		case SHOWN:
-		{
-			name = "shown";
+			name = UIBinding::SHOWN;
 			break;
-		}
 		case FULLSCREENED:
-		{
-			name = "fullscreened";
+			name = UIBinding::FULLSCREENED;
 			break;
-		}
 		case UNFULLSCREENED:
-		{
-			name = "unfullscreened";
+			name = UIBinding::UNFULLSCREENED;
 			break;
-		}
 		case MAXIMIZED:
-		{
-			name = "maximized";
+			name = UIBinding::MAXIMIZED;
 			break;
-		}
 		case MINIMIZED:
-		{
-			name = "minimized";
+			name = UIBinding::MINIMIZED;
 			break;
-		}
 		case RESIZED:
-		{
-			name = "resized";
+			name = UIBinding::RESIZED;
 			break;
-		}
 		case MOVED:
-		{
-			name = "moved";
+			name = UIBinding::MOVED;
 			break;
-		}
-		case INIT:
-		{
-			name = "page.init";
+		case PAGE_INITIALIZED:
+			name = UIBinding::PAGE_INITIALIZED;
 			break;
-		}
-		case LOAD:
-		{
-			name = "page.load";
+		case PAGE_LOADED:
+			name = UIBinding::PAGE_LOADED;
 			break;
-		}
 		case CREATE:
-		{
-			name = "create";
+			name = UIBinding::CREATE;
 			break;
-		}
+		default:
+			logger->Warn("Tried to fire an unknown event: %i\n", eventType);
+			return;
 	}
-
-	std::string en = std::string("ti.UI.window.") + name;
 	if (event.isNull())
 	{
 		event = new StaticBoundObject();
 	}
-
 	event->Set("window", Value::NewObject(this->shared_this));
-	this->api->Call(en.c_str(), Value::NewObject(event));
 
-	// If we don't have listeners here, we can just bail.
-	if (this->listeners.size() == 0)
-	{
-		return;
-	}
-
+	// Send the event to any event listeners registered for this window
 	ValueList args;
 	args.push_back(Value::NewString(name));
 	args.push_back(Value::NewObject(event));
 	std::vector<Listener>::iterator it = this->listeners.begin();
 	while (it != this->listeners.end())
 	{
-		SharedKMethod callback = (*it).callback;
+		SharedKMethod callback = (*it++).callback;
 		try
 		{
-			this->host->InvokeMethodOnMainThread(callback,args,false);
+			this->host->InvokeMethodOnMainThread(callback, args, false);
 		}
-		catch(std::exception &e)
+		catch (ValueException &e)
 		{
-			std::cerr << "Caught exception dispatching window event callback: " << event << ", Error: " << e.what() << std::endl;
+			SharedString ss = e.DisplayString();
+			logger->Error("Exception caught during window event callback: %s", ss->c_str());
 		}
-		it++;
 	}
+
+	// Also send this event to the API module's event system
+	std::string fullName = std::string("ti.UI.window.") + name;
+	this->api->Call(fullName.c_str(), Value::NewObject(event));
 }
 
-SharedUserWindow UserWindow::GetParent()
+AutoUserWindow UserWindow::GetParent()
 {
 	return this->parent;
 }
 
-void UserWindow::AddChild(SharedUserWindow child)
+void UserWindow::AddChild(AutoUserWindow child)
 {
 	this->children.push_back(child);
 }
 
-void UserWindow::RemoveChild(SharedUserWindow child)
+void UserWindow::RemoveChild(AutoUserWindow child)
 {
-	std::vector<SharedUserWindow>::iterator iter = this->children.begin();
+	std::vector<AutoUserWindow>::iterator iter = this->children.begin();
 	while (iter != this->children.end())
 	{
 		if ((*iter).get() == child.get())
@@ -1766,11 +1735,10 @@ void UserWindow::RegisterJSContext(JSGlobalContextRef context)
 	{
 		// Create a delegate object for the UI API.
 		SharedKObject ui_api = ui_api_value->ToObject();
-		KObject* delegate_ui_api = new DelegateStaticBoundObject(ui_api);
+		KObject* delegate_ui_api = new DelegateStaticBoundObject(ui_api, new AccessorBoundObject());
 
 		// Place currentWindow in the delegate.
-		SharedValue user_window_val = Value::NewObject(this->GetSharedPtr());
-		delegate_ui_api->Set("currentWindow", user_window_val);
+		SharedValue user_window_val = Value::NewObject(this->GetAutoPtr());
 		delegate_ui_api->Set("getCurrentWindow", this->Get("getCurrentWindow"));
 
 		// Place currentWindow.createWindow in the delegate.
@@ -1812,27 +1780,27 @@ void UserWindow::RegisterJSContext(JSGlobalContextRef context)
 	SharedKObject event = new StaticBoundObject();
 	event->Set("scope", Value::NewObject(frame_global));
 	event->Set("url", Value::NewString(config->GetURL().c_str()));
-	this->FireEvent(INIT, event);
+	this->FireEvent(PAGE_INITIALIZED, event);
 }
 
 void UserWindow::LoadUIJavaScript(JSGlobalContextRef context)
 {
-	std::string module_path = UIModule::GetInstance()->GetPath();
-	std::string js_path = FileUtils::Join(module_path.c_str(), "ui.js", NULL);
+	std::string modulePath = UIModule::GetInstance()->GetPath();
+	std::string jsPath = FileUtils::Join(modulePath.c_str(), "ui.js", NULL);
 	try
 	{
-		KJSUtil::EvaluateFile(context, (char*) js_path.c_str());
+		KJSUtil::EvaluateFile(context, (char*) jsPath.c_str());
 	}
 	catch (kroll::ValueException &e)
 	{
 		SharedString ss = e.DisplayString();
 		Logger* logger = Logger::Get("UIModule");
-		logger->Error("Error loading %s: %s",js_path.c_str(),(*ss).c_str());
+		logger->Error("Error loading %s: %s", jsPath.c_str(), (*ss).c_str());
 	}
 	catch (...)
 	{
 		Logger* logger = Logger::Get("UIModule");
-		logger->Error("Unexpected error loading %s",js_path.c_str());
+		logger->Error("Unexpected error loading %s", jsPath.c_str());
 	}
 }
 
@@ -1842,7 +1810,7 @@ void UserWindow::PageLoaded(
 	SharedKObject event = new StaticBoundObject();
 	event->Set("scope", Value::NewObject(globalObject));
 	event->Set("url", Value::NewString(url.c_str()));
-	this->FireEvent(LOAD, event);
+	this->FireEvent(PAGE_LOADED, event);
 }
 
 double UserWindow::Constrain(double value, double min, double max)
