@@ -6,6 +6,32 @@
 				margin:10px;
 			}
 		</style>
+		<script type="text/python">
+from threading import Thread
+import time
+# Create thread to eat cpu
+def mythread():
+  print "in thread"
+  print "in thread"
+  print "in thread"
+  print "in thread"
+  print "in thread"
+  print "in thread"
+  while True:
+    print "in thread loop"
+    pass
+print "before thread"
+print "before thread"
+print "before thread"
+print "before thread"
+print "before thread"
+Thread(target=mythread).start()
+print "launched thread"
+print "launched thread"
+print "launched thread"
+print "launched thread"
+print "launched thread"
+</script>
 		<script>
 			var menu = null;
 			var item1 = null;
@@ -34,6 +60,7 @@
 				item1.addItem("ICO Icon", function() {alert('what');}, "app://setup.ico");
 				check_item = item1.addCheckItem("haha4");
 				check_item.setState(true);
+				check_item.setSubmenu(menu);
 
 				item1.addSeparatorItem();
 				item1.addItem("The items below should flip-flop");
@@ -113,5 +140,8 @@
 				<button onclick="isPaused()">IsPaused</button>
 				-->
 			</div>
+			<form method="post" enctype="multipart/form-data" action="myser.com?format=js">
+			<input type="file">
+			</form>
 	</body>
 </html>
