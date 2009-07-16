@@ -87,6 +87,7 @@ namespace ti
 		 * @tiapi Create and add a tray icon
 		 * @tiarg[String, iconURL] URL to the icon to use for this tray item
 		 * @tiarg[Function, eventListener, optional=True] Event listener to add for this item
+		 * @tiresult(for=UI.addTray,type=UI.Tray|null) the application's Tray icon object
 		 */
 		this->SetMethod("addTray", &UIBinding::_AddTray);
 
@@ -164,6 +165,7 @@ namespace ti
 
 	UIBinding::~UIBinding()
 	{
+		this->ClearTray();
 	}
 
 	Host* UIBinding::GetHost()
@@ -352,12 +354,10 @@ namespace ti
 	void UIBinding::_AddTray(const ValueList& args, SharedValue result)
 	{
 		args.VerifyException("createTrayIcon", "s,?m");
-
-		std::string iconPath = args.GetString(0);
-		iconPath = URLToPathOrURL(iconPath);
+		std::string iconURL = args.GetString(0);
 
 		SharedKMethod cb = args.GetMethod(1, NULL);
-		AutoTrayItem item = this->AddTray(iconPath, cb);
+		AutoTrayItem item = this->AddTray(iconURL, cb);
 		this->trayItems.push_back(item);
 		result->SetObject(item);
 	}
