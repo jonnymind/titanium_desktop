@@ -198,7 +198,7 @@ Win32UserWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (itemId == WEB_INSPECTOR_MENU_ITEM_ID) {
 				Win32UserWindow* wuw = Win32UserWindow::FromWindow(hWnd);
 				if (wuw)
-					wuw->ShowWebInspector();
+					wuw->ShowInspector(false);
 				break;
 
 			} else if (Win32MenuItem::HandleClickEvent(nativeMenu, position)) {
@@ -243,8 +243,8 @@ void Win32UserWindow::InitWindow()
 
 void Win32UserWindow::InitWebKit()
 {
-	HRESULT hr = CoCreateInstance(CLSID_WebView, 0, CLSCTX_ALL, IID_IWebView,
-			(void**) &(this->web_view));
+	HRESULT hr = WebKitCreateInstance(CLSID_WebView, 0,
+		 IID_IWebView, (void**) &(this->web_view));
 	
 	if (FAILED(hr))
 	{
@@ -301,8 +301,8 @@ void Win32UserWindow::InitWebKit()
 	std::string appid = appConfig->GetAppID();
 
 	IWebPreferences *prefs = NULL;
-	hr = CoCreateInstance(CLSID_WebPreferences, 0, CLSCTX_ALL,
-			IID_IWebPreferences, (void**) &prefs);
+	hr = WebKitCreateInstance(CLSID_WebPreferences, 0,
+		IID_IWebPreferences, (void**) &prefs);
 	if (FAILED(hr) || prefs == NULL)
 	{
 		logger->Error("Couldn't create the web preferences object");
@@ -437,7 +437,14 @@ Win32UserWindow::Win32UserWindow(WindowConfig* config, AutoUserWindow& parent) :
 				(LPARAM) defaultIcon);
 	}
 
-	SetLayeredWindowAttributes(windowHandle, 0, 255, LWA_ALPHA);
+	if (config->GetTransparency() < 1.0)
+	{
+		SetWindowLong( this->windowHandle, GWL_EXSTYLE, WS_EX_LAYERED);
+		SetLayeredWindowAttributes(this->windowHandle, 0, (BYTE) floor(
+				config->GetTransparency() * 255), LWA_ALPHA);
+		SetLayeredWindowAttributes(this->windowHandle, transparencyColor, 0,
+			LWA_COLORKEY);
+	}
 }
 
 Win32UserWindow::~Win32UserWindow()
@@ -447,6 +454,8 @@ Win32UserWindow::~Win32UserWindow()
 
 	if (web_frame)
 		web_frame->Release();
+
+	DestroyWindow(windowHandle);
 }
 
 std::string Win32UserWindow::GetTransparencyColor()
@@ -559,9 +568,8 @@ void Win32UserWindow::Open()
 void Win32UserWindow::Close()
 {
 	this->RemoveOldMenu();
-	DestroyWindow(windowHandle);
 	UserWindow::Close();
-	this->Closed();
+	UserWindow::Closed();
 }
 
 double Win32UserWindow::GetX()
@@ -719,10 +727,9 @@ void Win32UserWindow::SetTitle(std::string& title)
 
 void Win32UserWindow::SetURL(std::string& url_)
 {
-	std::string url = url_;
-	url = ti::NormalizeAppURL(url);	
-	logger->Debug("SetURL: %s", url.c_str());
-	
+	std::string url = ti::NormalizeURL(url_);
+	Win32UIBinding::SetProxyForURL(url);
+
 	IWebMutableURLRequest* request = 0;
 	std::wstring method = L"GET" ;
 
@@ -736,7 +743,8 @@ void Win32UserWindow::SetURL(std::string& url_)
 	std::wstring wurl = UTF8ToWide(url);
 
 	logger->Debug("CoCreateInstance");
-	HRESULT hr = CoCreateInstance(CLSID_WebMutableURLRequest, 0, CLSCTX_ALL, IID_IWebMutableURLRequest, (void**)&request);
+	HRESULT hr = WebKitCreateInstance(CLSID_WebMutableURLRequest, 0, 
+		IID_IWebMutableURLRequest, (void**) &request);
 	if (FAILED(hr))
 		goto exit;
 
@@ -984,9 +992,6 @@ void Win32UserWindow::ReloadTiWindowConfig()
 
 	SetWindowLong(this->windowHandle, GWL_STYLE, windowStyle);
 
-	//UINT flags = SWP_NOZORDER | SWP_FRAMECHANGED;
-
-	//SetLayeredWindowAttributes(hWnd, 0, (BYTE)0, LWA_ALPHA);
 	if (config->GetTransparency() < 1.0)
 	{
 		SetWindowLong( this->windowHandle, GWL_EXSTYLE, WS_EX_LAYERED);
@@ -1050,11 +1055,18 @@ void Win32UserWindow::SetupSize()
 	this->SetBounds(b);
 }
 
-void Win32UserWindow::ShowWebInspector()
+void Win32UserWindow::ShowInspector(bool console)
 {
 	if (this->web_inspector)
 	{
-		this->web_inspector->show();
+		if (console)
+		{
+			this->web_inspector->showConsole();
+		}
+		else
+		{
+			this->web_inspector->show();
+		}
 	}
 }
 

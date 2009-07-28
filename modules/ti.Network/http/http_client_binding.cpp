@@ -184,8 +184,6 @@ namespace ti
 		 * @tiapi The handler function that will be fired as the stream data is sent
 		 */
 		this->SetNull("onsendstream");
-
-		this->self = Value::NewObject(this);
 	}
 	HTTPClientBinding::~HTTPClientBinding()
 	{
@@ -251,7 +249,14 @@ namespace ti
 				//FIXME - we need to notify of unsupported error here
 			}
 			
-			
+			std::string uriString = uri.toString();
+			SharedPtr<kroll::Proxy> proxy = kroll::ProxyConfig::GetProxyForURL(uriString);
+			if (!proxy.isNull())
+			{
+				session->setProxyHost(proxy->info->getHost());
+				session->setProxyPort(proxy->info->getPort());
+			}
+
 			// set the timeout for the request
 			Poco::Timespan to((long)binding->timeout,0L);
 			session->setTimeout(to);
@@ -446,7 +451,7 @@ namespace ti
 				try
 				{
 					rs.read((char*)&buf,8095);
-					std::streamsize c = rs.gcount();
+					int c = static_cast<int>(rs.gcount());
 					if (c > 0)
 					{
 						buf[c]='\0';
@@ -454,15 +459,16 @@ namespace ti
 						if (streamer.get())
 						{
 							ValueList args;
+
+							binding->duplicate();
+							args.push_back(Value::NewObject(binding));
+
 							SharedKList list = new StaticBoundList();
-
-							args.push_back(binding->self); // reference to us
-							args.push_back(Value::NewList(list));
-
 							list->Append(Value::NewInt(count)); // total count
 							list->Append(totalValue); // total size
 							list->Append(Value::NewObject(new Blob(buf,c))); // buffer
 							list->Append(Value::NewInt(c)); // buffer length
+							args.push_back(Value::NewList(list));
 
 							binding->host->InvokeMethodOnMainThread(streamer,args,binding->shutdown || !binding->async ? false : true);
 						}
@@ -512,7 +518,6 @@ namespace ti
 #ifdef OS_OSX
 		[pool release];
 #endif
-		binding->self = NULL;
 	}
 	void HTTPClientBinding::Send(const ValueList& args, SharedValue result)
 	{
@@ -729,7 +734,10 @@ namespace ti
 			try
 			{
 				ValueList args;
-				args.push_back(this->self);
+
+				this->duplicate();
+				args.push_back(Value::NewObject(this));
+
 				SharedKMethod callMethod = this->readystate->Get("call")->ToMethod();
 				
 				this->host->InvokeMethodOnMainThread(callMethod, args, true);
@@ -748,7 +756,10 @@ namespace ti
 				try
 				{
 					ValueList args;
-					args.push_back(this->self);
+
+					this->duplicate();
+					args.push_back(Value::NewObject(this));
+
 					SharedKMethod callMethod = this->onchange->Get("call")->ToMethod();
 					this->host->InvokeMethodOnMainThread(callMethod, args, true);
 				}

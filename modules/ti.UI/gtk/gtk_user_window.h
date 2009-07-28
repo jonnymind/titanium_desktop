@@ -143,21 +143,29 @@ namespace ti
 		AutoMenu GetMenu();
 		void SetContextMenu(AutoMenu);
 		AutoMenu GetContextMenu();
-
 		void SetIcon(std::string& iconPath);
 		std::string& GetIcon();
-
 		void SetInspectorWindow(GtkWidget* inspectorWindow);
 		GtkWidget *GetInspectorWindow();
+		virtual void ShowInspector(bool console);
+		inline WebKitWebView* GetWebView() { return this->webView; }
 
-		int gdkWidth;
-		int gdkHeight;
-		int gdkX;
-		int gdkY;
-		bool gdkMaximized;
-		bool gdkMinimized;
+		// These values contain the most-recently-set dimension
+		// information for this UserWindow. GDK is asynchronous,
+		// so if a user sets the value the and fetches it without
+		// giving up control to the UI thread, returning one of them
+		// will yield the correct information. When we actually
+		// detect a GDK window resize, these values will also be
+		// updated, so they will be an accurate representation of
+		// the window size.
+		int targetWidth;
+		int targetHeight;
+		int targetX;
+		int targetY;
+		bool targetMaximized;
+		bool targetMinimized;
 
-	protected:
+		protected:
 		GtkWindow* gtkWindow;
 		GtkWidget* vbox;
 		WebKitWebView* webView;

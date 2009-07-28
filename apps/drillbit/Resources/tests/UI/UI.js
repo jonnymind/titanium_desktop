@@ -577,7 +577,7 @@ describe("UI Module Tests",{
 				} else {
 					callback.failed("Closing window did not receive CLOSE event");
 				}
-			}, 200);
+			}, 1000);
 		}, 200);
 	},
 	test_window_top_most: function()
@@ -638,14 +638,19 @@ describe("UI Module Tests",{
 		w.open();
 		w2.open();
 
-		w.addEventListener(Titanium.FOCUSED, function(event)
+		w.addEventListener(function(event)
 		{
 			if (event.type == Titanium.FOCUSED)
 			{
 				hasFocus = true;
 			}
 		});
-		w.focus();
+
+		w2.focus();
+		setTimeout(function()
+		{
+			w.focus();
+		}, 100);
 
 		setTimeout(function()
 		{
@@ -653,47 +658,48 @@ describe("UI Module Tests",{
 			w2.close();
 			if (!hasFocus)
 			{
-				callback.failed("Did not detect maximized message");
+				callback.failed("Did not detect focused message");
 			}
 			callback.passed();
-		}, 300);
+		}, 500);
 	},
 
 	test_window_unfocus_as_async: function(callback)
 	{
-		var hadFocus = false;
+		var sawEvent = false;
 		// get the current UserWindow object
 		var w = Titanium.UI.getCurrentWindow().createWindow('app://blahblah.html');
 		var w2 = Titanium.UI.getCurrentWindow().createWindow('app://blahblah.html');
 		w.open();
 		w2.open();
-		
-		// just make sure we have the focus...
-		w2.focus();
 
 		// basically the same test as before, but we add the event listener to
 		// the second window and wait for the unfocus event.
-		w2.addEventListener(Titanium.UNFOCUSED, function(event)
+		w2.addEventListener(function(event)
 		{
+			if (event.type == Titanium.FOCUSED)
+			{
+				setTimeout(function() { w2.unfocus();}, 200);
+			}
 			if (event.type == Titanium.UNFOCUSED)
 			{
-				hadFocus = true;
+				sawEvent = true;
 			}
 		});
-		w2.unfocus();
 
+		// just make sure we have the focus...
+		w2.focus();
 		setTimeout(function()
 		{
 			w.close();
 			w2.close();
-			if (!hadFocus)
+			if (!sawEvent)
 			{
-				callback.failed("Did not detect maximized message");
+				callback.failed("Did not detect unfocused message");
 			}
 			callback.passed();
-		}, 300);
+		}, 600);
 	},
-	
 	test_window_transparency: function()
 	{
 		var w = Titanium.UI.getCurrentWindow().createWindow('app://blahblah.html');
@@ -754,5 +760,84 @@ describe("UI Module Tests",{
 		value_of(w.getIcon()).should_be("doesnotexist.png");
 
 		w.close();
+	},
+	test_window_getchildren: function()
+	{
+		var w = Titanium.UI.getCurrentWindow().createWindow('app://blahblah.html');
+		w.open();
+
+		value_of(w.getChildren).should_be_function();
+		var children = w.getChildren();
+		value_of(children).should_be_object();
+		value_of(children.length).should_be(0);
+
+		var w2 = w.createWindow("app://blahblah.html");
+		var w3 = w.createWindow("app://blahblah.html");
+		w2.open();
+		w3.open();
+
+		var children = w.getChildren();
+		value_of(children.length).should_be(2);
+		value_of(children[0].equals(w2)).should_be_true();
+		value_of(children[1].equals(w3)).should_be_true();
+
+		w2.close();
+		w3.close();
+		w.close();
+	},
+	test_window_opener_not_present: function()
+	{
+		// window.opener should be null when a single window with no parent
+		value_of(window.opener).should_be_null();
+	},
+	test_window_opener_as_async: function(callback)
+	{
+		Titanium.API.ui_test_opener_value = undefined;
+		var w = Titanium.UI.getCurrentWindow().createWindow('app://test_window_opener.html');
+		w.open();
+		setTimeout(function()
+		{
+			var failed = true;
+			try
+			{
+				value_of(Titanium.API.ui_test_opener_value).should_be_true();
+			}
+			catch(e)
+			{
+				callback.failed(e);
+			}
+			try
+			{
+				value_of(w.window.opener).should_be_object();
+				failed = false;
+			}
+			catch(e)
+			{
+				callback.failed(e);
+			}
+			w.close();
+			if (!failed)
+			{
+				callback.passed();
+			}
+		},1000);
+	},
+	test_window_opener_different_domain_as_async: function(callback)
+	{
+		var w = Titanium.UI.getCurrentWindow().createWindow('http://www.google.com/');
+		w.open();
+		setTimeout(function()
+		{
+			try
+			{
+				value_of(w.window.opener).should_be_null();
+				callback.passed();
+			}
+			catch(e)
+			{
+				callback.failed(e);
+			}
+			w.close();
+		},1500);
 	}
 });

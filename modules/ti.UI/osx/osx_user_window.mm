@@ -50,9 +50,9 @@ namespace ti
 			styleMask: mask
 			backing: NSBackingStoreBuffered
 			defer: false];
-
-		AutoPtr<OSXUserWindow>* shuw = new AutoPtr<OSXUserWindow>(0);
-		(*shuw) = shared_this.cast<OSXUserWindow>();
+		
+		this->duplicate();
+		AutoPtr<OSXUserWindow>* shuw = new AutoPtr<OSXUserWindow>(this);
 		[nativeWindow setUserWindow:shuw];
 
 		if (!config->IsFullscreen())
@@ -536,9 +536,9 @@ namespace ti
 	{
 		if (active && nativeWindow != nil)
 		{
-			std::string url_str = AppConfig::Instance()->InsertAppIDIntoURL(config->GetURL());
-			NSURL* url = [NSURL URLWithString: [NSString stringWithCString:url_str.c_str() encoding:NSUTF8StringEncoding]];
-			[[[nativeWindow webView] mainFrame] loadRequest:[NSURLRequest requestWithURL:url]];
+			std::string nurl = kroll::URLUtils::NormalizeURL(url);
+			NSURL* nsurl = [NSURL URLWithString: [NSString stringWithUTF8String:nurl.c_str()]];
+			[[[nativeWindow webView] mainFrame] loadRequest:[NSURLRequest requestWithURL:nsurl]];
 		}
 	}
 
@@ -652,14 +652,12 @@ namespace ti
 
 	void OSXUserWindow::Focused()
 	{
-		AutoPtr<OSXUserWindow> osxWin = this->shared_this.cast<OSXUserWindow>();
-		this->osxBinding->WindowFocused(osxWin);
+		this->osxBinding->WindowFocused(GetAutoPtr().cast<OSXUserWindow>());
 	}
 
 	void OSXUserWindow::Unfocused()
 	{
-		AutoPtr<OSXUserWindow> osxWin = this->shared_this.cast<OSXUserWindow>();
-		this->osxBinding->WindowUnfocused(osxWin);
+		this->osxBinding->WindowUnfocused(GetAutoPtr().cast<OSXUserWindow>());
 	}
 	
 	void OSXUserWindow::SetContextMenu(AutoMenu menu)
@@ -827,6 +825,11 @@ namespace ti
 
 		callback->Call(ValueList(Value::NewList(results)));
 		this->Show();
+	}
+	
+	void OSXUserWindow::ShowInspector(bool console)
+	{
+		[nativeWindow showInspector:console];
 	}
 }
     

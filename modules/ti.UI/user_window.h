@@ -46,6 +46,7 @@ namespace ti
 				std::string& typesDescription);
 
 			void _GetCurrentWindow(const kroll::ValueList&, kroll::SharedValue);
+			void _GetDOMWindow(const kroll::ValueList&, kroll::SharedValue);
 			void _InsertAPI(const kroll::ValueList&, kroll::SharedValue);
 			void _Hide(const kroll::ValueList&, kroll::SharedValue);
 			void _Show(const kroll::ValueList&, kroll::SharedValue);
@@ -107,12 +108,14 @@ namespace ti
 			void _GetIcon(const kroll::ValueList&, kroll::SharedValue);
 			void _SetIcon(const kroll::ValueList&, kroll::SharedValue);
 			void _GetParent(const kroll::ValueList&, kroll::SharedValue);
+			void _GetChildren(const kroll::ValueList&, kroll::SharedValue);
 			void _CreateWindow(const kroll::ValueList&, kroll::SharedValue);
 			void _OpenFileChooserDialog(const ValueList& args, SharedValue result);
 			void _OpenFolderChooserDialog(const ValueList& args, SharedValue result);
 			void _OpenSaveAsDialog(const ValueList& args, SharedValue result);
 			void _IsTopMost(const kroll::ValueList&, kroll::SharedValue);
 			void _SetTopMost(const kroll::ValueList&, kroll::SharedValue);
+			virtual void _ShowInspector(const ValueList& args, SharedValue result);
 	
 			struct Listener {
 				SharedKMethod callback;
@@ -210,22 +213,27 @@ namespace ti
 			virtual std::string& GetIcon() = 0;
 			virtual bool IsTopMost() = 0;
 			virtual void SetTopMost(bool topmost) = 0;
-			virtual bool ShouldHaveTitaniumObject(JSGlobalContextRef, JSObjectRef);
+			virtual void ShowInspector(bool console=false) = 0;
 			virtual void RegisterJSContext(JSGlobalContextRef);
 			virtual void InsertAPI(SharedKObject frameGlobal);
 			virtual void PageLoaded(
 				SharedKObject scope, std::string &url, JSGlobalContextRef context);
 			virtual void AppIconChanged() {};
 			virtual void AppMenuChanged() {};
+			AutoUserWindow CreateWindow(WindowConfig* config);
+			AutoUserWindow CreateWindow(std::string& url);
+			AutoUserWindow CreateWindow(SharedKObject properties);
 			AutoUserWindow GetAutoPtr();
+			static bool ShouldHaveTitaniumObject(JSGlobalContextRef, JSObjectRef);
+			static bool IsMainFrame(JSGlobalContextRef, JSObjectRef);
 
 		protected:
 			Logger* logger;
 			AutoUIBinding binding;
+			SharedKObject domWindow;
 			Host* host;
 			WindowConfig *config;
 			AutoUserWindow parent;
-			AutoUserWindow shared_this;
 			std::vector<AutoUserWindow> children;
 			long next_listener_id;
 			bool active;
@@ -239,6 +247,5 @@ namespace ti
 			static double Constrain(double, double, double);
 			static void LoadUIJavaScript(JSGlobalContextRef context);
 	};
-
 }
 #endif

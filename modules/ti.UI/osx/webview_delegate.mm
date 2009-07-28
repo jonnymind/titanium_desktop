@@ -173,45 +173,6 @@
 - (void)webView:(WebView *)sender decidePolicyForNavigationAction:(NSDictionary*) actionInformation request:(NSURLRequest*) request frame:(WebFrame*)frame decisionListener:(id <WebPolicyDecisionListener>)listener
 {
 	[listener use];
-	//int type = [[actionInformation objectForKey:WebActionNavigationTypeKey] intValue];
-	//
-	//switch (type)
-	//{
-	//	case WebNavigationTypeBackForward:
-	//	case WebNavigationTypeReload:
-	//	{
-	//		[listener use];
-	//		return;
-	//	}
-	//	case WebNavigationTypeLinkClicked:
-	//	case WebNavigationTypeFormSubmitted:
-	//	case WebNavigationTypeFormResubmitted:
-	//	{
-	//		break;
-	//	}
-	//	case WebNavigationTypeOther:
-	//	{
-	//		break;
-	//	}
-	//	default:
-	//	{
-	//		[listener ignore];
-	//		return;
-	//	}
-	//}
-	//NSString *protocol = 
-	//	[[actionInformation objectForKey:WebActionOriginalURLKey] scheme]; 
-	//if ([protocol isEqual:@"app"] || [protocol isEqual:@"ti"] ||
-	//	[protocol isEqual:@"http"] || [protocol isEqual:@"https"])
-	//{
-	//	[listener use];
-	//}
-	//else
-	//{
-	//	logger->Warn("Application attempted to navigate to illegal location: %s",
-	//		[[newURL absoluteString] UTF8String]);
-	//	[listener ignore];
-	//}
 }
 
 // WebFrameLoadDelegate Methods
@@ -338,11 +299,26 @@
 
 - (WebView *)webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request
 {
-	return nil;
+	AutoUserWindow newWindow = 0;
+	NSString *url = [[request URL] relativeString];
+	if ([url length] > 0)
+	{
+		std::string urlStr = [url UTF8String];
+		newWindow = [window userWindow]->CreateWindow(urlStr);
+	}
+	else
+	{
+		newWindow = [window userWindow]->CreateWindow(new WindowConfig());
+	}
+
+	AutoPtr<OSXUserWindow> osxWindow = newWindow.cast<OSXUserWindow>();
+	osxWindow->Open();
+	return [osxWindow->GetNative() webView];
 }
 
 - (void)webViewShow:(WebView *)sender
 {
+	[window userWindow]->Show();
 }
 
 - (void)webViewClose:(WebView *)wv 
@@ -580,68 +556,6 @@
 	return menuItems;
 }
 
-#pragma mark -
-#pragma mark WebScriptDebugDelegate
-
-// some source was parsed, establishing a "source ID" (>= 0) for future reference
-- (void)webView:(WebView *)webView
-	didParseSource:(NSString *)source
-	baseLineNumber:(unsigned int)lineNumber
-	fromURL:(NSURL *)aurl
-	sourceId:(int)sid
-	forWebFrame:(WebFrame *)webFrame
-{
-}
-
-// some source failed to parse
-- (void)webView:(WebView *)webView
-	failedToParseSource:(NSString *)source
-	baseLineNumber:(unsigned int)lineNumber
-	fromURL:(NSURL *)theurl
-	withError:(NSError *)error
-	forWebFrame:(WebFrame *)webFrame
-{
-	logger->Error("Failed to parse javascript from %s at line number %i: %s",
-		[[theurl absoluteString] UTF8String],
-		lineNumber,
-		[[error localizedDescription] UTF8String]);
-}
-
-// just entered a stack frame (i.e. called a function, or started global scope)
-- (void)webView:(WebView *)webView
-	didEnterCallFrame:(WebScriptCallFrame *)frame
-	sourceId:(int)sid
-	line:(int)lineno
-	forWebFrame:(WebFrame *)webFrame
-{
-}
-
-// about to execute some code
-- (void)webView:(WebView *)webView
-	willExecuteStatement:(WebScriptCallFrame *)frame
-	sourceId:(int)sid
-	line:(int)lineno
-	forWebFrame:(WebFrame *)webFrame
-{
-}
-
-// about to leave a stack frame (i.e. return from a function)
-- (void)webView:(WebView *)webView
-	willLeaveCallFrame:(WebScriptCallFrame *)frame
-	sourceId:(int)sid
-	line:(int)lineno
-	forWebFrame:(WebFrame *)webFrame
-{
-}
-
-// exception is being thrown
-- (void)webView:(WebView *)webView
-	exceptionWasRaised:(WebScriptCallFrame *)frame
-	sourceId:(int)sid
-	line:(int)lineno
-	forWebFrame:(WebFrame *)webFrame
-{
-}
 
 // return whether or not quota has been reached for a db (enabling db support)
 - (void)webView:(WebView*)webView

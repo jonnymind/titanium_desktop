@@ -23,23 +23,25 @@ namespace ti
 		this->Set("CENTERED", Value::NewInt(UIBinding::CENTERED));
 
 		/**
-		 * @tiapi(method=True,name=UI.createMenu,version=1.0) Create an empty Menu object
-		 * @tiresult(for=UI.createMenu,type=UI.Menu) a Menu object
+		 * @tiapi(method=True,name=UI.createMenu,version=1.0)
+		 * @tiapi Create a new menu
+		 * @tiresult[UI.Menu] A new menu
 		 */
 		this->SetMethod("createMenu", &UIBinding::_CreateMenu);
 
 		/**
-		 * @tiapi(method=True,name=UI.createMenuItem,version=1.0) Create a new MenuItem object
+		 * @tiapi(method=True,name=UI.createMenuItem,version=1.0)
+		 * @tiapi Create a new menu item.
 		 * @tiarg[String, label] The label for this menu item
 		 * @tiarg[Function, eventListener, optional=True] An event listener for this menu item
 		 * @tiarg[String, iconURL, optional=True] A URL to an icon to use for this menu item
-		 * @tiresult[UI.MenuItem] The new MenuItem object
+		 * @tiresult[UI.MenuItem] A new menu item
 		 */
 		this->SetMethod("createMenuItem", &UIBinding::_CreateMenuItem);
 
 		/**
 		 * @tiapi(method=True,name=UI.createCheckMenuItem,version=1.0)
-		 * @tiapi Create a new CheckMenuItem object
+		 * @tiapi Create a new CheckMenuItem object.
 		 * @tiarg[String, label] The label for this menu item
 		 * @tiarg[Function, eventListener, optional=True] An event listener for this menu item
 		 * @tiresult[UI.CheckMenuItem] The new CheckMenuItem object
@@ -47,8 +49,9 @@ namespace ti
 		this->SetMethod("createCheckMenuItem", &UIBinding::_CreateCheckMenuItem);
 
 		/**
-		 * @tiapi(method=True,name=UI.createSeperatorMenuItem,version=1.0) Create a new SeparatorMenuItem object
-		 * @tiresult[UI.SeparatorMenuItem] The new SeparatorMenuItem object
+		 * @tiapi(method=True,name=UI.createSeperatorMenuItem,version=1.0)
+		 * @tiapi Create a new separator menu item.
+		 * @tiresult[UI.SeparatorMenuItem] A new separator menu item
 		 */
 		this->SetMethod("createSeparatorMenuItem", &UIBinding::_CreateSeparatorMenuItem);
 
@@ -245,8 +248,8 @@ namespace ti
 			item->SetLabel(label);
 		if (!iconURL.empty())
 			item->SetIcon(iconURL);
-		//if (!eventListener.isNull())
-		//	item->AddEventListener(Event::CLICKED, eventListener);
+		if (!eventListener.isNull())
+			item->AddEventListener(Event::CLICKED, eventListener);
 
 		return item;
 	}
@@ -266,8 +269,8 @@ namespace ti
 		AutoMenuItem item = this->CreateCheckMenuItem();
 		if (!label.empty())
 			item->SetLabel(label);
-		//if (!eventListener.isNull())
-		//	item->AddEventListener(Event::CLICKED, eventListener);
+		if (!eventListener.isNull())
+			item->AddEventListener(Event::CLICKED, eventListener);
 
 		return item;
 	}
@@ -337,11 +340,19 @@ namespace ti
 	void UIBinding::_SetIcon(const ValueList& args, SharedValue result)
 	{
 		args.VerifyException("setIcon", "s|0");
-		std::string iconPath = this->iconURL = "";
-		if (args.size() > 0) {
-			this->iconURL = args.GetString(0);
-			iconPath = URLToPathOrURL(this->iconURL);
-		}
+
+		std::string iconURL;
+		if (args.size() > 0)
+			iconURL = args.GetString(0);
+		this->_SetIcon(iconURL);
+	}
+
+	void UIBinding::_SetIcon(std::string iconURL)
+	{
+		std::string iconPath;
+		this->iconURL = iconURL;
+		if (!iconURL.empty())
+			iconPath = URLUtils::URLToPath(this->iconURL);
 
 		this->SetIcon(iconPath); // platform-specific impl
 
@@ -400,7 +411,7 @@ namespace ti
 		std::string iconPath;
 		if (args.size() > 0) {
 			std::string in = args.GetString(0);
-			iconPath = URLToPathOrURL(in);
+			iconPath = URLUtils::URLToPath(in);
 		}
 		this->SetDockIcon(iconPath);
 	}
@@ -430,7 +441,7 @@ namespace ti
 		std::string iconPath;
 		if (args.size() > 0) {
 			std::string in = args.GetString(0);
-			iconPath = URLToPathOrURL(in);
+			iconPath = URLUtils::URLToPath(in);
 		}
 
 		this->SetBadgeImage(iconPath);
@@ -442,44 +453,5 @@ namespace ti
 	{
 		result->SetDouble(this->GetIdleTime());
 	}
-
-	/*static*/
-	void UIBinding::SendEventToListeners(
-		std::vector<SharedKMethod> eventListeners,
-		std::string eventType,
-		SharedKObject eventSource,
-		SharedKObject event)
-	{
-		event->SetObject("source", eventSource);
-		event->SetString("type", eventType);
-
-		std::vector<SharedKMethod>::iterator i = eventListeners.begin();
-		while (i != eventListeners.end())
-		{
-			UIBinding::SendEventToListener((*i++), event);
-		}
-	}
-
-	/*static*/
-	void UIBinding::SendEventToListener(
-		SharedKMethod listener, SharedKObject event)
-	{
-		if (listener.isNull())
-			return;
-
-		try {
-			listener->Call(ValueList(Value::NewObject(event)));
-
-		} catch (ValueException& e) {
-			Logger* logger = Logger::Get("UI.UIBinding");
-			SharedString exceptionSS = e.DisplayString();
-			SharedString eventTypeSS = event->Get("type")->DisplayString();
-			logger->Error(
-				"Event listener for %s event failed with exception: %s",
-				eventTypeSS->c_str(),
-				exceptionSS->c_str());
-		}
-	}
-
 }
 

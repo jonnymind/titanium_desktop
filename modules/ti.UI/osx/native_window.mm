@@ -68,15 +68,22 @@
 {
 	return userWindow->get();
 }
-
-- (void)showInspector:(id)sender
+- (void)showInspector:(BOOL)console
 {
 	if (inspector == nil)
 	{
 		inspector = [[WebInspector alloc] initWithWebView:webView];
-		[inspector detach:self];
+		[inspector detach:webView];
 	}
-	[inspector show:self];
+	
+	if (console)
+	{
+		[inspector showConsole:webView];
+	}
+	else
+	{
+		[inspector show:webView];
+	}
 }
 
 - (void)titaniumQuit:(id)sender
@@ -238,9 +245,9 @@
 		// will cause the window to be shown once the url is loaded
 		requiresDisplay = YES;
 	}
-	std::string url_str = AppConfig::Instance()->InsertAppIDIntoURL(config->GetURL());
-	NSURL* url = [NSURL URLWithString: [NSString stringWithCString:url_str.c_str() encoding:NSUTF8StringEncoding]];
-	[[webView mainFrame] loadRequest:[NSURLRequest requestWithURL:url]];
+	std::string url = kroll::URLUtils::NormalizeURL(config->GetURL());
+	NSURL* nsurl = [NSURL URLWithString: [NSString stringWithUTF8String:url.c_str()]];
+	[[webView mainFrame] loadRequest:[NSURLRequest requestWithURL:nsurl]];
 }
 
 - (void)close
