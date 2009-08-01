@@ -187,10 +187,16 @@ namespace ti
 	}
 	HTTPClientBinding::~HTTPClientBinding()
 	{
-		KR_DUMP_LOCATION
 		this->shutdown = true;
 		if (this->thread!=NULL)
 		{
+			try
+			{
+				this->thread->join();
+			}
+			catch(...)
+			{
+			}
 			delete this->thread;
 			this->thread = NULL;
 		}
@@ -199,7 +205,6 @@ namespace ti
 			delete this->filestream;
 			this->filestream = NULL;
 		}
-		NetworkBinding::RemoveBinding(this);
 	}
 	void HTTPClientBinding::Run (void* p)
 	{
@@ -209,6 +214,7 @@ namespace ti
 		HTTPClientBinding *binding = reinterpret_cast<HTTPClientBinding*>(p);
 
 		PRINTD("HTTPClientBinding:: starting => " << binding->url);
+		try{
 		
 		Poco::Net::HTTPResponse res;
 		std::ostringstream ostr;
@@ -217,7 +223,6 @@ namespace ti
 		std::string url = binding->url;
 
 		bool deletefile = false;
-
 		for (int x=0;x<max_redirects;x++)
 		{
 			Poco::URI uri(url);
@@ -509,12 +514,15 @@ namespace ti
 			Poco::File f(binding->filename);
 			f.remove();
 		}
-
+}
+catch(...)
+{
+}
 		binding->shutdown = true;
 		binding->Set("connected",Value::NewBool(false));
 		binding->ChangeState(4); // closed
 		binding->response = NULL; // must be done after change state
-		NetworkBinding::RemoveBinding(binding);
+//		NetworkBinding::RemoveBinding(binding);
 #ifdef OS_OSX
 		[pool release];
 #endif

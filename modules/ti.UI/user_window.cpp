@@ -1096,12 +1096,16 @@ void UserWindow::_GetTitle(const kroll::ValueList& args, kroll::SharedValue resu
 void UserWindow::_SetTitle(const kroll::ValueList& args, kroll::SharedValue result)
 {
 	args.VerifyException("setTitle", "s");
+	std::string newTitle = args.at(0)->ToString();
+	this->SetTitle(newTitle);
+}
 
-	std::string title = args.at(0)->ToString();
-	this->config->SetTitle(title);
+void UserWindow::SetTitle(std::string& newTitle)
+{
+	this->config->SetTitle(newTitle);
 	if (this->active)
 	{
-		this->SetTitle(title);
+		this->SetTitleImpl(newTitle);
 	}
 }
 
@@ -1124,7 +1128,10 @@ void UserWindow::_SetURL(const kroll::ValueList& args, kroll::SharedValue result
 	args.VerifyException("setURL", "s");
 
 	std::string url = args.at(0)->ToString();
-	url = URLUtils::NormalizeURL(url);
+	if (url.empty())
+		url = WindowConfig::blankPageURL;
+	else
+		url = URLUtils::NormalizeURL(url);
 
 	this->config->SetURL(url);
 	if (this->active)

@@ -33,6 +33,7 @@
 	[webPrefs setPlugInsEnabled:YES]; 
 	[webPrefs setJavaEnabled:YES];
 	[webPrefs setJavaScriptEnabled:YES];
+	[webPrefs setJavaScriptCanOpenWindowsAutomatically:YES];
 
 	if ([webPrefs respondsToSelector:@selector(setDatabasesEnabled:)])
 	{
@@ -237,19 +238,23 @@
 
 - (void)webView:(WebView *)sender didReceiveTitle:(NSString *)title forFrame:(WebFrame *)frame
 {
+	std::string newTitle = [title UTF8String];
+	[window userWindow]->SetTitle(newTitle);
 }
 
 - (void)webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame
 {
 
-	if (![self isGlobalObjectRegisteredForFrame:frame]) {
+	if (![self isGlobalObjectRegisteredForFrame:frame])
+	{
 		// This was a failed load, so do not continue
 		return;
 	}
 
 	JSGlobalContextRef context = [frame globalContext];
 	SharedKObject global = [self globalObjectForFrame:frame];
-	if (global.isNull()) {
+	if (global.isNull())
+	{
 		// The load was successful, but this page doesn't have a script tag
 		global = [self registerJSContext:context forFrame:frame];
 	}
@@ -300,10 +305,11 @@
 - (WebView *)webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request
 {
 	AutoUserWindow newWindow = 0;
-	NSString *url = [[request URL] relativeString];
+	NSString *url = [[request URL] absoluteString];
 	if ([url length] > 0)
 	{
 		std::string urlStr = [url UTF8String];
+		logger->Debug("creating new webView window with url: %s", urlStr.c_str());
 		newWindow = [window userWindow]->CreateWindow(urlStr);
 	}
 	else
