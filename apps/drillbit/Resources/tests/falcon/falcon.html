@@ -1,31 +1,42 @@
-<html>
-   <title>Falcon - Titanium interoperability test</title>
-   <script>
-      function javascript_func(a)
-      {
-         return 'prefix '+a;
-      }
-      var javascript_var = 'variable from javascript';
-   </script>
-<body>
-   <div id="a">Document Div Content</div>
-   <!--<script src="falcon.fal" type="text/falcon"></script>-->
-   <script type="text/falcon">
-      function docElementA()
-         return document.getElementById('a')
-      end
-       //window.inline_test_result = "A";
-   </script>
-   <script>
-     
-      window.doc_inline_result = docElementA().innerHTML;
-      /*window.external_test_result = external_document().innerHTML;
-      window.require_file_module_result = require_file_module()
-      window.require_file_sub_file_module_result = require_sub_file_module()
-      window.test_window_global_result = test_window_global()
-      window.what_is_love_result = window['what_is_love']()
-      window.test_document_title_result = test_document_title()
-      window.test_external_module_result = test_external_module()*/
-   </script>
-</body>
-</html>
+	<html>
+	<title>Falcon - Titanium interoperability test</title>
+	<script>
+		function javascript_func(a)
+		{
+			return 'prefix '+a;
+		}
+		var javascript_var = 'variable from javascript';
+	</script>
+	<body>
+	<div id="a">Document Div Content</div>
+	<div id="b">Document Div Content</div>
+	<!--<script src="falcon.fal" type="text/falcon"></script>-->
+	<script type="text/falcon">
+		function returnVal()
+			return "Value returned from a function"
+		end
+		
+		window.inline_test_result = "Added manually";
+		window.FalconFunc = {=> "Value from falcon"}
+		window.docElemA = window.document.getElementById('a')
+		window.document.getElementById('b').innerHTML= "<P> Changed!</P>"
+	</script>
+
+	<script>
+		window.falcon_func_result = window.FalconFunc();
+		window.doc_inline_result = window.docElemA.innerHTML;
+		/*window.external_test_result = external_document().innerHTML;
+		window.require_file_module_result = require_file_module()
+		window.require_file_sub_file_module_result = require_sub_file_module()
+		window.test_window_global_result = test_window_global()
+		window.what_is_love_result = window['what_is_love']()
+		window.test_document_title_result = test_document_title()
+		window.test_external_module_result = test_external_module()*/
+	</script>
+
+	<!-- Repeat a falcon block to try a remote test -->
+	<script type="text/falcon">
+		window.funcall_result = returnVal()
+	</script>
+	</body>
+	</html>

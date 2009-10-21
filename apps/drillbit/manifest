@@ -8,6 +8,7 @@
 #desc:Unit Test Driver
 runtime:0.4
 api:0.4
+falcon:0.4
 javascript:0.4
 tianalytics:0.4
 tiapp:0.4
