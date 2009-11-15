@@ -61,14 +61,12 @@ if build.is_win32():
 Export('build', 'debug')
 targets = COMMAND_LINE_TARGETS
 clean = 'clean' in targets or ARGUMENTS.get('clean', 0)
-qclean = 'qclean' in targets or ARGUMENTS.get('qclean', 0)
 build.nopackage = ARGUMENTS.get('nopackage', 0)
 
-if clean or qclean:
+if clean:
 	print "Obliterating your build directory: %s" % build.dir
 	if path.exists(build.dir):
 		dir_util.remove_tree(build.dir)
-	if not qclean: os.system('scons -c')
 	Exit(0)
 
 # forcing a crash to test crash detection
@@ -76,8 +74,10 @@ if ARGUMENTS.get('test_crash', 0):
 	build.env.Append(CPPDEFINES = ('TEST_CRASH_DETECTION', 1))
 
 ## Kroll *must not be required* for installation
-SConscript('kroll/SConscript.thirdparty', exports='debug')
+SConscript('kroll/SConscript.thirdparty')
 SConscript('installation/SConscript')
+if build.is_win32():
+	SConscript('support/win32/SConscript')
 
 # After Kroll builds, the environment will  link 
 # against libkroll, so anything that should not be
