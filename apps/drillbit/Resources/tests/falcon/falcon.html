@@ -10,7 +10,7 @@
 	<body>
 	<div id="a">Document Div Content</div>
 	<div id="b">Document Div Content</div>
-	<!--<script src="falcon.fal" type="text/falcon"></script>-->
+	<script src="falcon.fal" type="text/falcon"></script>
 	<script type="text/falcon">
 		function returnVal()
 			return "Value returned from a function"
@@ -20,23 +20,64 @@
 		window.FalconFunc = {=> "Value from falcon"}
 		window.docElemA = window.document.getElementById('a')
 		window.document.getElementById('b').innerHTML= "<P> Changed!</P>"
+
+		// export a number
+		window.number_from_falcon = 1
+		// export a float
+		window.float_from_falcon = 1.123
+		// export a null value
+		window.null_from_falcon = nil
+
+		/* Ok, now create an object and share it with javascript */
+		class MyObj(val)
+			num = 1
+			string = "string property"
+			val = val
+			
+			function test()
+				return "A test: " + self.val
+			end
+		end
+
+		window.array_from_falcon = [ 1, "B", 3.2 ]
+		window.dict_from_falcon = ["A" => 0, "B" => 1.1, "C" => "c string"]
+		window.object_from_falcon = MyObj( "inst" )
+		window.method_from_falcon = window.object_from_falcon.test
+
+		/* 'Till version 0.9, we won't publish implicitly functions to the topmost level */
+		window.returnVal = returnVal
+		window.external_document = external_document
+		window.regex_match = regex_match
+
 	</script>
 
 	<script>
+		/* Calling a function created by falcon */
 		window.falcon_func_result = window.FalconFunc();
+		/* See if the export of a toplevel func works */
+		window.falcon_func_result2 = returnVal();
+
 		window.doc_inline_result = window.docElemA.innerHTML;
-		/*window.external_test_result = external_document().innerHTML;
-		window.require_file_module_result = require_file_module()
-		window.require_file_sub_file_module_result = require_sub_file_module()
-		window.test_window_global_result = test_window_global()
-		window.what_is_love_result = window['what_is_love']()
-		window.test_document_title_result = test_document_title()
-		window.test_external_module_result = test_external_module()*/
+		/* calling a function provided by falcon in javascript */
+		window.external_test_result = external_document().innerHTML;
+		/* calling a function that imports external stuff (falcon regex) */
+		window.external_import = regex_match("prefix a<hello world>z more");
+
+		function HelloFromJavascript( parameter )
+		{
+			return "Hello: "+ parameter;
+		}
+		
 	</script>
 
 	<!-- Repeat a falcon block to try a remote test -->
 	<script type="text/falcon">
+		/* A falcon script exporting to javascript (will check in the testsuite) */
 		window.funcall_result = returnVal()
+		
+		/* falcon code accessing javascrit function */
+		window.javascript_to_falcon_result = window.HelloFromJavascript( "from falcon" )
+		
 	</script>
 	</body>
 	</html>

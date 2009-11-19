@@ -1,0 +1,18 @@
+
+load regex
+
+function external_document()
+   return window.document.getElementById('a')
+end
+
+// Just to test external import
+function regex_match( string )
+   r = Regex( "a(.*)z" )
+   if r.match( string )
+      return string[r.captured(1)]
+   else
+      return nil
+   end
+end
+
+export
