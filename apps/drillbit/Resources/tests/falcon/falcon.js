@@ -54,6 +54,14 @@
 		value_of(window.null_from_falcon).should_be(null);
 	},
 
+	test_falcon_list: function()
+	{
+		value_of(window.list_from_falcon).should_be_object();
+		value_of(window.list_from_falcon.length).should_be(3);
+		value_of(window.list_from_falcon[0]).should_be(1);
+		value_of(window.list_from_falcon[1]).should_be("B");
+		value_of(window.list_from_falcon[2]).should_be(3.2);
+	},
 	
 	test_falcon_dict: function()
 	{

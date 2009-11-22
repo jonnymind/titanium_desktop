@@ -221,7 +221,7 @@ void Win32UserWindow::InitWindow()
 
 	// these APIs are semi-private -- we probably shouldn't mark them
 	// make our HWND available to 3rd party devs without needing our headers
-	KValueRef windowHandle = Value::NewVoidPtr((void*) this->windowHandle);
+	KValueRef windowHandle = Value::NewObject(new VoidPtr(this->windowHandle));
 	this->Set("windowHandle", windowHandle);
 	logger->Debug("Initializing windowHandle: %i", windowHandle);
 
@@ -749,6 +749,8 @@ void Win32UserWindow::SetTransparency(double transparency)
 	SetWindowLong(windowHandle, GWL_EXSTYLE, GetStyleFromConfig());
 	SetLayeredWindowAttributes(windowHandle, 0,
 		(BYTE) floor(config->GetTransparency() * 255), LWA_ALPHA);
+	SetLayeredWindowAttributes(windowHandle, transparencyColor, 0,
+		LWA_COLORKEY);
 }
 
 void Win32UserWindow::SetFullscreen(bool fullscreen)
